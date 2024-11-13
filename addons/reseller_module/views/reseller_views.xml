@@ -1,0 +1,27 @@
+<odoo>
+    <record id="view_suscription_tree" model="ir.ui.view">
+        <field name="name">suscription.tree</field>
+        <field name="model">suscriptions.module</field>
+        <field name="arch" type="xml">
+            <tree string="Suscriptions">
+                <field name="name"/>
+                <field name="description"/>
+                <field name="active"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_suscription_form" model="ir.ui.view">
+        <field name="name">suscription.form</field>
+        <field name="model">suscriptions.module</field>
+        <field name="arch" type="xml">
+            <form string="Suscription">
+                <group>
+                    <field name="name"/>
+                    <field name="description"/>
+                    <field name="active"/>
+                </group>
+            </form>
+        </field>
+    </record>
+</odoo>
