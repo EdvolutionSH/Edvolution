@@ -1,5 +1,6 @@
 <odoo>
-    <record id="view_suscription_tree" model="ir.ui.view">
+    <data>
+    <!-- <record id="view_suscription_tree" model="ir.ui.view">
         <field name="name">suscription.tree</field>
         <field name="model">suscriptions.module</field>
         <field name="arch" type="xml">
@@ -23,5 +24,6 @@
                 </group>
             </form>
         </field>
-    </record>
+    </record> -->
+    </data>
 </odoo>

@@ -1,0 +1,30 @@
+<odoo>
+    <record id="view_reseller_module_form" model="ir.ui.view">
+        <field name="name">reseller.module.form</field>
+        <field name="model">reseller.module</field>
+        <field name="arch" type="xml">
+            <form string="Reseller module">
+                <sheet>
+                    <h1>Sincronización de contactos</h1>
+                    <group>
+                        <button string="Sincronizar Contactos"
+                                type="object"
+                                name="fetch_contacts"
+                                class="btn-primary"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_reseller_module" model="ir.actions.act_window">
+        <field name="name">Reseller module</field>
+        <field name="res_model">reseller.module</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+    </record>
+
+    <menuitem id="menu_reseller_module" name="Reseller module"
+              parent="contacts.menu_contacts"
+              action="action_reseller_module"/>
+</odoo>
