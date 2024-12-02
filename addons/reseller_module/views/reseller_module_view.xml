@@ -9,7 +9,7 @@
                     <group>
                         <button string="Sincronizar Contactos"
                                 type="object"
-                                name="fetch_contacts"
+                                name="sync_contacts"
                                 class="btn-primary"/>
                     </group>
                 </sheet>
