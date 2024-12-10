@@ -1,30 +1,144 @@
 <odoo>
-    <record id="view_reseller_module_form" model="ir.ui.view">
+    <record id="view_reseller_module_form"  model="ir.ui.view">
         <field name="name">reseller.module.form</field>
         <field name="model">reseller.module</field>
         <field name="arch" type="xml">
-            <form string="Reseller module">
+            <form string="Reseller Module">
                 <sheet>
-                    <h1>Sincronización de contactos</h1>
                     <group>
-                        <button string="Sincronizar Contactos"
-                                type="object"
-                                name="fetch_contacts"
-                                class="btn-primary"/>
+                        <field name="contact_ids">
+                            <tree string="Contactos">
+                                <field name="website"/>
+                                <field name="email"/>
+                                <field name="phone"/>
+                            </tree>
+                        </field>
                     </group>
                 </sheet>
             </form>
         </field>
     </record>
 
-    <record id="action_reseller_module" model="ir.actions.act_window">
-        <field name="name">Reseller module</field>
+    <!-- Vista sincronizar contactos y conteo de contactos -->
+    <record id="view_reseller_module_form" model="ir.ui.view">
+        <field name="name">reseller.module.form</field>
+        <field name="model">reseller.module</field>
+        <field name="arch" type="xml">
+            <form string="Reseller module">
+                <sheet>
+                    <group>
+                        <button string="Sincronizar Contactos"
+                                type="object"
+                                name="fetch_contacts"
+                                class="btn-primary"
+                                style="width: 100%;"/>
+                    </group>
+                    <!-- Agregar un panel con dos columnas -->
+                    
+                        <div class="row">
+                            <!-- Columna de "Contactos en Odoo" -->
+                            <div class="col-4">
+                                <h1>Contactos en Odoo:</h1>
+                                <p style="font-size: x-large"><field name="contact_total" readonly="1"/></p>
+                            </div>
+                            <!-- Columna de "Contactos sincronizados" -->
+                            <div class="col-4">
+                                <h1>Contactos Sincronizados:</h1>
+                                <p style="font-size: x-large">36</p>
+                            </div>
+                            <!-- Columna de "Contactos en consola Reseller" -->
+                            <div class="col-4">
+                                <h1>Contactos en consola Reseller:</h1>
+                                <p style="font-size: x-large">36</p>
+                            </div>
+                        </div>
+                    
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    
+
+    <!-- Acción para Actualizar contactos-->
+    <record id="action_contacts_update" model="ir.actions.act_window">
+        <field name="name">Actualizar contactos</field>
         <field name="res_model">reseller.module</field>
         <field name="view_mode">form</field>
+        <field name="view_id" ref="view_reseller_module_form"/>
         <field name="target">current</field>
     </record>
 
-    <menuitem id="menu_reseller_module" name="Reseller module"
-              parent="contacts.menu_contacts"
-              action="action_reseller_module"/>
+    <record id="view_contacts_tree" model="ir.ui.view">
+        <field name="name">contactos.tree</field>
+        <field name="model">res.partner</field>
+        <field name="arch" type="xml">
+            <tree string="Contactos">
+                <field name="name" string="Nombre"/>
+                <field name="email" string="Correo Electrónico"/>
+                <field name="phone" string="Teléfono"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Acción para ver lista de contactos-->
+    <record id="action_contacts_view" model="ir.actions.act_window">
+        <field name="name">Vista Contactos</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="view_contacts_tree"/>
+        <field name="context">{'group_by': 'parent_id'}</field>
+    </record>
+
+    <!-- Acción para Suscripciones Vigentes -->
+    <record id="action_subscriptions_vigentes" model="ir.actions.act_window">
+        <field name="name">Suscripciones Vigentes</field>
+        <field name="res_model">reseller.module</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('status', '=', 'vigente')]</field>
+    </record>
+
+    <!-- Acción para Suscripciones Por vencer -->
+    <record id="action_subscriptions_por_vencer" model="ir.actions.act_window">
+        <field name="name">Suscripciones Por Vencer</field>
+        <field name="res_model">reseller.module</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('status', '=', 'por_vencer')]</field>
+    </record>
+
+    <!-- Acción para Suscripciones Vencidas -->
+    <record id="action_subscriptions_vencidas" model="ir.actions.act_window">
+        <field name="name">Suscripciones Vencidas</field>
+        <field name="res_model">reseller.module</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('status', '=', 'vencida')]</field>
+    </record>
+
+    <!-- Acción para vista reportes-->
+    <record id="action_reports_domain" model="ir.actions.act_window">
+        <field name="name">Reporte por dominios</field>
+        <field name="res_model">reseller.module</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('status', '=', 'por_vencer')]</field>
+    </record>
+
+    <!-- Menú principal -->
+    <menuitem id="reseller_module_menu_root" name="Reseller Module" sequence="10"/>
+
+    <!-- Opción Contactos -->
+    <menuitem id="menu_contacts" name="Contactos" parent="reseller_module_menu_root" sequence="10"/>
+    <menuitem id="menu_contacts_update" name="Actualizar contactos" parent="menu_contacts" action="action_contacts_update" sequence="10"/>
+    <menuitem id="menu_contacts_view" name="Vista contactos" parent="menu_contacts" action="action_contacts_view" sequence="20"/>
+
+    <!-- Submenú Suscripciones -->
+    <menuitem id="menu_subscriptions" name="Suscripciones" parent="reseller_module_menu_root" sequence="20"/>
+
+    <!-- Opciones dentro del submenú Suscripciones -->
+    <menuitem id="menu_subscriptions_vigentes" name="Vigentes" parent="menu_subscriptions" action="action_subscriptions_vigentes" sequence="10"/>
+    <menuitem id="menu_subscriptions_por_vencer" name="Por vencer" parent="menu_subscriptions" action="action_subscriptions_por_vencer" sequence="20"/>
+    <menuitem id="menu_subscriptions_vencidas" name="Vencidas" parent="menu_subscriptions" action="action_subscriptions_vencidas" sequence="30"/>
+
+    <menuitem id="menu_reports" name="Reportes" parent="reseller_module_menu_root" sequence="30"/>
+    <menuitem id="menu_reports_domains" name="Reporte de margen" parent="menu_reports" action="action_reports_domain" sequence="10"/>
+    
 </odoo>

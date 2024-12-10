@@ -16,3 +16,8 @@
 #     def _value_pc(self):
 #         for record in self:
 #             record.value2 = float(record.value) / 100
+# contact_ids = fields.One2many(
+#     comodel_name='res.partner',  # Modelo relacionado
+#     inverse_name='reseller_id',  # Campo inverso en res.partner
+#     string='Contactos'
+# )

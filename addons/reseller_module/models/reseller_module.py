@@ -8,8 +8,33 @@ import logging
 _logger = logging.getLogger(__name__)
 
 class ResellerModule(models.Model):
+    
     _name = 'reseller.module'    
     _description = 'Reseller Contact Sync'
+
+    name = fields.Char(string="Reseller Name")  # Campo para identificar el módulo
+    contact_ids = fields.One2many(
+        comodel_name='res.partner',  # Modelo relacionado
+        inverse_name='reseller_id',  # Campo inverso en res.partner
+        string='Contactos'
+    )
+    status = fields.Selection([
+        ('vigente', 'Vigente'),
+        ('vencida', 'Vencida'),
+        ('por_vencer', 'Por Vencer'),
+    ], string='Estado', required=True, default='vigente')
+    start_date = fields.Date(string='Fecha de Inicio')
+    end_date = fields.Date(string='Fecha de Fin')
+
+    contact_total = fields.Integer(string="Total de Contactos")
+
+    @api.model
+    def default_get(self, fields_list):
+        res = super(ResellerModule, self).default_get(fields_list)
+        total_contacts = self.env['res.partner'].search_count([])
+        res.update({'contact_total': total_contacts})
+        return res
+
     
     # name = fields.Char('Nombre', required=True)
     # address = fields.Char('Dirección')
@@ -31,7 +56,7 @@ class ResellerModule(models.Model):
     #     selection=[('company', 'Empresa'), ('personal', 'Personal')],
     #     help="Type is used to separate Companies and Personal Opportunities")
     # sync_date = fields.Datetime(string='Fecha de sincronización', default=fields.Datetime.now)
-       
+    
     
     def authenticate_service_account(self):
         """Autentica la service account para acceder a la API"""
@@ -103,3 +128,27 @@ class ResellerModule(models.Model):
         #             'phone': contact['phone'],
         #         })
         #         _logger.info("Nuevo contacto creado: %s", contact)  # Imprime el nuevo contacto creado
+
+class ResPartner(models.Model):
+    _inherit = 'res.partner'
+
+    reseller_id = fields.Many2one(
+        comodel_name='reseller.module',
+        string='Reseller Module'
+    )
+
+    contactos_odoos = fields.Many2many('res.partner', string="Contactos en Odoo", compute="_compute_contactos_odoos")
+    contactos_reseller_console = fields.Many2many('res.partner', string="Contactos Sincronizados", compute="_compute_contactos_reseller_console")
+
+    def _compute_contactos_odoo(self):
+        # Obtener todos los contactos en el sistema
+        for partner in self:
+            partner.contactos_odoo = self.env['res.partner'].search([])  # Todos los contactos
+
+    def _compute_contactos_reseller_console(self):
+        # Obtener contactos etiquetados con "reseller console"
+        for partner in self:
+            reseller_tag = self.env.ref('your_module.reseller_console_tag')  # Reemplaza con el ID correcto de la etiqueta
+            partner.contactos_reseller_console = self.env['res.partner'].search([('category_id', 'in', reseller_tag.ids)])
+    
+    
