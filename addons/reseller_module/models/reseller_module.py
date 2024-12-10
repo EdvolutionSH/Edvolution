@@ -235,7 +235,7 @@ class ResellerModule(models.Model):
                     _logger.info("Nuevo contacto de Reseller Partner creado: %s", reseller)
                     
                 else:
-                    personal = self.env['res.partner'].search([('name', '=', display_name)], limit=1)
+                    personal = self.env['res.partner'].search([('email', '=', display_name)], limit=1)
                     
                     if personal:
                         personal.write(personal_data)
