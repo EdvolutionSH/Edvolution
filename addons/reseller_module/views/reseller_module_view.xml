@@ -29,9 +29,8 @@
                     <group>
                         <button string="Sincronizar Contactos"
                                 type="object"
-                                name="fetch_contacts"
-                                class="btn-primary"
-                                style="width: 100%;"/>
+                                name="sync_contacts"
+                                class="btn-primary"/>
                     </group>
                     <!-- Agregar un panel con dos columnas -->
                     
