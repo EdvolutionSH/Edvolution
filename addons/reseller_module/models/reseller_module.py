@@ -6,6 +6,7 @@ import logging
 from google.cloud import channel_v1
 from google.cloud import channel
 from datetime import datetime, timedelta
+from googleapiclient.errors import HttpError
 
 _logger = logging.getLogger(__name__)
 
@@ -70,7 +71,7 @@ class ResellerModule(models.Model):
     
 
     
-    def authenticate_service_account(self):
+    def create_channel_service(self):
         """Autentica la service account para acceder a la API"""
         try:
             credentials = service_account.Credentials.from_service_account_file(
@@ -80,21 +81,47 @@ class ResellerModule(models.Model):
             # Set up credentials with user impersonation
             reseller_admin_user = GOOGLE_RESELLER_ADMIN_USER
 
-            credentials_delegated = credentials.with_subject(reseller_admin_user)
+            delegated_credentials = credentials.with_subject(reseller_admin_user)
             
-             # Create the API client
-            client = channel.CloudChannelServiceClient(credentials=credentials_delegated)
-            return client
+            # Create the API client
+            channel_service = channel.CloudChannelServiceClient(credentials=delegated_credentials)
+
+            return channel_service
+
+        except Exception as e:
+            _logger.error(f"Error al autenticar: {e}")
+            return None
+        
+    def create_admin_service(self):
+        """Autentica la service account para acceder a la API"""
+        try:
+            credentials = service_account.Credentials.from_service_account_file(
+                SERVICE_ACCOUNT_FILE, 
+                scopes=["https://www.googleapis.com/auth/admin.directory.user"])
+            
+            # Set up credentials with user impersonation
+            admin_user = GOOGLE_RESELLER_ADMIN_USER
+
+            delegated_credentials = credentials.with_subject(admin_user)
+            
+            # Create the API client
+            admin_service = build(
+                serviceName='admin',
+                version='directory_v1',
+                credentials=delegated_credentials
+            )
+            
+            return admin_service
+
         except Exception as e:
             _logger.error(f"Error al autenticar: {e}")
             return None
 
     def fetch_contacts(self):
         """Obtiene la lista de contactos de la API y devuelve los datos"""
-        client = self.authenticate_service_account()
+        service = self.create_channel_service()
         
-
-        if not client:
+        if not service:
             return []
         try:
             # Initialize request arguments
@@ -103,7 +130,7 @@ class ResellerModule(models.Model):
             )
 
             # Make the request
-            page_result = client.list_customers(request=request)
+            page_result = service.list_customers(request=request)
 
             return page_result
         
@@ -207,7 +234,7 @@ class ResellerModule(models.Model):
                     _logger.info("Nuevo contacto creado: %s", reseller)
                 else:
                     reseller = self.env['reseller.partner'].create(reseller_data)
-                    _logger.info("Contacto actualizado: %s", reseller)
+                    _logger.info("Nuevo contacto en tabla reseller_partner creado: %s", reseller)
                     
             
             # Company contact
@@ -244,61 +271,108 @@ class ResellerModule(models.Model):
                     company.write(company_data)
                     _logger.info("Nuevo contacto creado: %s", company)
                 else:
+                    reseller = self.env['reseller.partner'].search([('name', '=', name)], limit=1)
+                    
+                    if reseller:
+                        reseller.write(reseller_data)
+                        _logger.info("Contacto en tabla reseller_partner actualizado: %s", reseller)
+                    else:
+                        reseller = self.env['reseller.partner'].create(reseller_data)
+                        _logger.info("Nuevo contacto en tabla reseller_partner creado: %s", reseller)
+                
+                # Company contact
+                company_vals = {
+                    'contact_address': full_address.strip(),
+                    'country_code': region_code,
+                    'date': '',
+                    'display_name': org_display_name,
+                    'name': org_display_name,
+                    'commercial_company_name': org_display_name,
+                    # 'lang': language_code,
+                    'lang': 'en_US',
+                    # 'phone': phone,
+                    'website': domain,
+                    'type': 'contact',
+                    'is_company': True,
+                    'zip': postal_code,
+                    'street': address_line_1,
+                    'street2': address_line_2,
+                    'category_id': [(6, 0, category_ids)],
+                }
+                
+                company_data = {k: v for k, v in company_vals.items() if v != ''}
+                
+                # Create company contact
+                if record_count == 0:
                     company = self.env['res.partner'].create(company_data)
-                    _logger.info("Contacto actualizado: %s", company)
-            
-            # Check if the relationship already exists before adding
-            if company.id not in reseller.partner_ids.ids:
-                reseller.partner_ids = [(4, company.id)]
-                _logger.info("Relación de compañia creada con ID: %s", company.id)
-            else:
-                _logger.info("La relación ya existe para la compañía con ID: %s", company.id)
-            
-            # Personal contact
-            personal_vals = {
-                'contact_address': full_address.strip(),
-                'country_code': region_code,
-                'date': '',
-                'display_name': display_name,
-                'name': display_name,
-                'email': email,
-                # 'lang': language_code,
-                # 'lang': 'en_US',
-                'phone': phone,
-                'website': domain,
-                'parent_id': company.id,
-                'type': 'contact',
-                'is_company': False,
-                'zip': postal_code,
-                'street': address_line_1,
-                'street2': address_line_2,
-                'email_formatted': display_name + ' ' + email,
-                'category_id': [(6, 0, category_ids)],
-            }
-            
-            personal_data = {k: v for k, v in personal_vals.items() if v != ''}
-            
-            # Create Personal contact
-            if record_count == 0:
-                personal = self.env['res.partner'].create(personal_data)
-                _logger.info("Nuevo contacto de Reseller Partner creado: %s", reseller)
-                
-            else:
-                personal = self.env['res.partner'].search([('email', '=', display_name)], limit=1)
-                
-                if personal:
-                    personal.write(personal_data)
-                    _logger.info("Nuevo contacto creado: %s", personal)
+                    _logger.info("Nuevo contacto de compañia en tabla res_partner creado: %s", reseller)
+                    
                 else:
+                    company = self.env['res.partner'].search([('name', '=', org_display_name)], limit=1)
+                    
+                    if company:
+                        company.write(company_data)
+                        _logger.info("Contacto de compañía en tabla res_partner actualizado: %s", company)
+                    else:
+                        company = self.env['res.partner'].create(company_data)
+                        _logger.info("Contacto de compañia en tabla res_partner creado: %s", company)
+                
+                # Check if the relationship already exists before adding
+                if company.id not in reseller.partner_ids.ids:
+                    reseller.partner_ids = [(4, company.id)]
+                    _logger.info("Relación de compañia creada con ID: %s", company.id)
+                else:
+                    _logger.info("La relación ya existe para la compañía con ID: %s", company.id)
+                    
+                # Personal contact
+                personal_vals = {
+                    'contact_address': full_address.strip(),
+                    'country_code': region_code,
+                    'date': '',
+                    'display_name': display_name,
+                    'name': display_name,
+                    'email': email,
+                    # 'lang': language_code,
+                    'lang': 'en_US',
+                    'phone': phone,
+                    'website': domain,
+                    'parent_id': company.id,
+                    'type': 'contact',
+                    'is_company': False,
+                    'zip': postal_code,
+                    'street': address_line_1,
+                    'street2': address_line_2,
+                    'email_formatted': display_name + ' ' + email,
+                    'category_id': [(6, 0, category_ids)],
+                }
+                
+                personal_data = {k: v for k, v in personal_vals.items() if v != ''}
+                personal = None
+                # Create Personal contact
+                if record_count == 0:
                     personal = self.env['res.partner'].create(personal_data)
-                    _logger.info("Contacto actualizado: %s", personal)      
+                    _logger.info("Nuevo contacto de persona en tabla res_partner creado: %s", reseller)
+                    
+                else:
+                    if email: 
+                        personal = self.env['res.partner'].search([('email', '=', email)], limit=1)
                         
-            # Check if the relationship already exists before adding
-            if personal.id not in reseller.partner_ids.ids:
-                reseller.partner_ids = [(4, personal.id)]
-                _logger.info("Relación de compañia creada con ID: %s", personal.id)
-            else:
-                _logger.info("La relación ya existe para la compañía con ID: %s", personal.id)
+                        if personal and email:
+                            personal.write(personal_data)
+                            _logger.info("Contacto de persona en tabla res_partner actualizado: %s", personal)
+                        else:
+                            personal = self.env['res.partner'].create(personal_data)
+                            _logger.info("Contacto de persona en tabla res_partner creado: %s", personal)      
+                            
+                if personal: 
+                    # Check if the relationship already exists before adding
+                    if personal.id not in reseller.partner_ids.ids:
+                        reseller.partner_ids = [(4, personal.id)]
+                        _logger.info("Relación de persona creada con ID: %s", personal.id)
+                    else:
+                        _logger.info("La relación ya existe para la persona con ID: %s", personal.id)
+
+                self.complement_contacts(reseller, company.id, category_ids)
 
         # except ValueError as e:
         #     _logger.error("Error al procesar la respuesta de la API: %s", e)
@@ -341,3 +415,91 @@ class ResPartner(models.Model):
 
 
     
+    
+    def complement_contacts(self, reseller, company_id, category_ids):
+        try:
+            
+            """Obtiene la lista de contactos de la API y devuelve los datos"""
+            service = self.create_admin_service()
+            
+            if not service:
+                return []
+                
+            users = []
+            try:
+                if reseller.cloud_identity_id != False:
+                    # Intenta obtener los usuarios
+                    results = service.users().list(customer=reseller.cloud_identity_id, query='isAdmin=true', maxResults=15).execute()
+                    users = results.get('users', [])
+            except HttpError as error:
+                if int(error.resp.get('status', 0)) == 403:  # Error de permisos
+                    _logger.warning("Error de permisos al obtener usuarios para reseller %s: %s", reseller.cloud_identity_id, error)
+                elif int(error.resp.get('status', 0)) == 404:  # Reseller no encontrado
+                    _logger.warning("Cliente no encontrado: %s", reseller.cloud_identity_id)
+                else:
+                    _logger.error("Error inesperado al obtener usuarios para cliente %s: %s", reseller.cloud_identity_id, error)
+            except Exception as e:
+                _logger.error("Error desconocido al obtener usuarios: %s", e)
+            
+            # Si no hay usuarios, return
+            if not users:
+                _logger.info("No se encontraron usuarios para el cliente %s.", reseller.cloud_identity_id)
+                return []
+        
+            record_count = self.env['reseller.partner'].search_count([])
+            
+            for user in users:
+                
+                name_data = user.get('name', {})
+                full_name = name_data.get('fullName', 'Sin nombre')
+                email = user.get('primaryEmail')
+
+                # Personal contact
+                contact_vals = {
+                    'contact_address': reseller.address,
+                    'country_code': reseller.region_code,
+                    'date': '',
+                    'display_name': full_name,
+                    'name': full_name,
+                    'email': email,
+                    # 'lang': language_code,
+                    # 'lang': 'en_US',
+                    # 'phone': reseller.phone,
+                    'website': reseller.domain,
+                    'parent_id': company_id,
+                    'type': 'contact',
+                    'is_company': False,
+                    'zip': reseller.postal_code,
+                    'street': reseller.address_line_1,
+                    'street2': reseller.address_line_2,
+                    'email_formatted': full_name + ' ' + email,
+                    'category_id': [(6, 0, category_ids)],
+                }
+                
+                contact_data = {k: v for k, v in contact_vals.items() if v not in [False, '']}                
+                
+                # Create Personal contact
+                if record_count == 0:
+                    contact = self.env['res.partner'].create(contact_data)
+                    _logger.info("Nuevo contacto complementario en tabla res_partner creado: %s", reseller)
+                    
+                else:
+                    contact = self.env['res.partner'].search([('email', '=', email)], limit=1)
+                    
+                    if contact:
+                        contact.write(contact_data)
+                        _logger.info("Contacto complementario en tabla res_partner actualizado: %s", contact)
+                    else:
+                        contact = self.env['res.partner'].create(contact_data)
+                        _logger.info("Contacto complementario en tabla res_partner creado: %s", contact)      
+
+                # Check if the relationship already exists before adding
+                if contact.id not in reseller.partner_ids.ids:
+                    reseller.partner_ids = [(4, contact.id)]
+                    _logger.info("Relación complementaria creada con ID: %s", contact.id)
+                else:
+                    _logger.info("La relación complementaria ya existe para la compañía con ID: %s", contact.id)
+                    
+        except Exception as e:
+            _logger.error(f"Error al obtener contactos: {e}")
+            return []

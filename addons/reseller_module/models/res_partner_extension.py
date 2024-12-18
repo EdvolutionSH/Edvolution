@@ -10,6 +10,6 @@ class ResPartner(models.Model):
         'reseller_partner_id',  # Nombre del campo en la tabla intermedia que apunta a 'reseller.partner'
         string='Reseller Partners'
     )
-    name = fields.Char(default='Sin Nombre')
-    phone = fields.Char(default='Sin número')
+    name = fields.Char(default=None)
+    phone = fields.Char(default=None)
 
