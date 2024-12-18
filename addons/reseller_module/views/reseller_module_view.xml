@@ -43,18 +43,19 @@
                             <!-- Columna de "Contactos sincronizados" -->
                             <div class="col-4">
                                 <h1>Contactos Sincronizados:</h1>
-                                <p style="font-size: x-large">36</p>
+                                <field name="contact_synced" readonly="1"/>
                             </div>
                             <!-- Columna de "Contactos en consola Reseller" -->
                             <div class="col-4">
                                 <h1>Contactos en consola Reseller:</h1>
-                                <p style="font-size: x-large">36</p>
+                                <p style="font-size: x-large">38</p>
                             </div>
                         </div>
                     
                 </sheet>
             </form>
         </field>
+        <field name="context">{'default_contacts_in_partner_sales': active_model.load_contacts_in_partner_sales()}</field>
     </record>
 
     

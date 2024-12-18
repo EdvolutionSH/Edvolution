@@ -1,4 +1,3 @@
-from odoo import models, fields
 import json
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -34,13 +33,41 @@ class ResellerModule(models.Model):
     end_date = fields.Date(string='Fecha de Fin')
 
     contact_total = fields.Integer(string="Total de Contactos")
+    contact_synced = fields.Integer(string="Contactos Sincronizados")
 
     @api.model
     def default_get(self, fields_list):
         res = super(ResellerModule, self).default_get(fields_list)
+        
+        # Asegurarse de que res es un diccionario
+        if not isinstance(res, dict):
+            res = {}
+
+        # Obtener el total de contactos
         total_contacts = self.env['res.partner'].search_count([])
-        res.update({'contact_total': total_contacts})
+
+        # Inicializar contactos sincronizados
+        contacts_count = 0
+        
+        # Buscar la categoría y contar los contactos asociados
+        partner_sales_category = self.env['res.partner.category'].search(
+            [('name', '=', 'Partner Sales Console')], limit=1
+        )
+        if partner_sales_category:  
+            contacts_count = self.env['res.partner'].search_count(
+                [('category_id', '=', partner_sales_category.id)]
+            )
+        
+        # Actualizar valores predeterminados
+        res.update({
+            'contact_total': total_contacts,
+            'contact_synced': contacts_count,
+        })
+        
         return res
+
+
+    
 
     
     def authenticate_service_account(self):
@@ -304,17 +331,13 @@ class ResPartner(models.Model):
     )
 
     contactos_odoos = fields.Many2many('res.partner', string="Contactos en Odoo", compute="_compute_contactos_odoos")
-    contactos_reseller_console = fields.Many2many('res.partner', string="Contactos Sincronizados", compute="_compute_contactos_reseller_console")
 
     def _compute_contactos_odoo(self):
         # Obtener todos los contactos en el sistema
         for partner in self:
             partner.contactos_odoo = self.env['res.partner'].search([])  # Todos los contactos
 
-    def _compute_contactos_reseller_console(self):
-        # Obtener contactos etiquetados con "reseller console"
-        for partner in self:
-            reseller_tag = self.env.ref('your_module.reseller_console_tag')  # Reemplaza con el ID correcto de la etiqueta
-            partner.contactos_reseller_console = self.env['res.partner'].search([('category_id', 'in', reseller_tag.ids)])
     
+
+
     
