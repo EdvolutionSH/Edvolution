@@ -32,8 +32,8 @@ class ResellerModule(models.Model):
     start_date = fields.Date(string='Fecha de Inicio')
     end_date = fields.Date(string='Fecha de Fin')
 
-    contact_total = fields.Integer(string="Total de Contactos")
-    contact_synced = fields.Integer(string="Contactos Sincronizados")
+    contact_total = fields.Integer(string="Contactos en Odoo", readonly=True)
+    contact_synced = fields.Integer(string="Contactos Sincronizados", readonly=True)
 
     @api.model
     def default_get(self, fields_list):

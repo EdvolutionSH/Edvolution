@@ -6,13 +6,11 @@
             <form string="Reseller Module">
                 <sheet>
                     <group>
-                        <field name="contact_ids">
-                            <tree string="Contactos">
-                                <field name="website"/>
-                                <field name="email"/>
-                                <field name="phone"/>
-                            </tree>
-                        </field>
+                        <button string="Sincronizar Contactos" type="object" name="sync_contacts" class="btn-primary"/>
+                    </group>
+                    <group>
+                        <field name="contact_total" readonly="1"/>
+                        <field name="contact_synced" readonly="1"/>
                     </group>
                 </sheet>
             </form>
@@ -20,7 +18,7 @@
     </record>
 
     <!-- Vista sincronizar contactos y conteo de contactos -->
-    <record id="view_reseller_module_form" model="ir.ui.view">
+    <record id="view_reseller_module_form_update" model="ir.ui.view">
         <field name="name">reseller.module.form</field>
         <field name="model">reseller.module</field>
         <field name="arch" type="xml">
@@ -55,7 +53,6 @@
                 </sheet>
             </form>
         </field>
-        <field name="context">{'default_contacts_in_partner_sales': active_model.load_contacts_in_partner_sales()}</field>
     </record>
 
     
@@ -65,7 +62,7 @@
         <field name="name">Actualizar contactos</field>
         <field name="res_model">reseller.module</field>
         <field name="view_mode">form</field>
-        <field name="view_id" ref="view_reseller_module_form"/>
+        <field name="view_id" ref="view_reseller_module_form_update"/>
         <field name="target">current</field>
     </record>
 
