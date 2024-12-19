@@ -58,16 +58,12 @@ class ResellerModule(models.Model):
             contacts_count = self.env['res.partner'].search_count(
                 [('category_id', '=', partner_sales_category.id)]
             )
-            
-        contact_synced = self.env['reseller.partner'].search_count([])
         
         # Actualizar valores predeterminados
         res.update({
             'contact_total': total_contacts,
-            # 'contact_synced': contacts_count,
-            'contact_synced': contact_synced,
+            'contact_synced': contacts_count,
         })
-        print("total_contacts: ", total_contacts)
         return res
 
     
@@ -355,23 +351,6 @@ class ResellerModule(models.Model):
             category_ids.append(category.id)
         
         return category_ids
-    
-
-class ResPartner(models.Model):
-    _inherit = 'res.partner'
-
-    reseller_id = fields.Many2one(
-        comodel_name='reseller.module',
-        string='Reseller Module'
-    )
-
-    contactos_odoos = fields.Many2many('res.partner', string="Contactos en Odoo", compute="_compute_contactos_odoos")
-
-    def _compute_contactos_odoo(self):
-        # Obtener todos los contactos en el sistema
-        for partner in self:
-            partner.contactos_odoo = self.env['res.partner'].search([])  # Todos los contactos
-
 
     def complement_contacts(self, reseller, company_id, category_ids):
         try:
@@ -460,3 +439,20 @@ class ResPartner(models.Model):
         except Exception as e:
             _logger.error(f"Error al obtener contactos: {e}")
             return []
+    
+
+class ResPartner(models.Model):
+    _inherit = 'res.partner'
+
+    reseller_id = fields.Many2one(
+        comodel_name='reseller.module',
+        string='Reseller Module'
+    )
+
+    contactos_odoos = fields.Many2many('res.partner', string="Contactos en Odoo", compute="_compute_contactos_odoos")
+
+    def _compute_contactos_odoo(self):
+        # Obtener todos los contactos en el sistema
+        for partner in self:
+            partner.contactos_odoo = self.env['res.partner'].search([])  # Todos los contactos
+
