@@ -58,17 +58,17 @@ class ResellerModule(models.Model):
             contacts_count = self.env['res.partner'].search_count(
                 [('category_id', '=', partner_sales_category.id)]
             )
+            
+        contact_synced = self.env['reseller.partner'].search_count([])
         
         # Actualizar valores predeterminados
         res.update({
             'contact_total': total_contacts,
-            'contact_synced': contacts_count,
+            # 'contact_synced': contacts_count,
+            'contact_synced': contact_synced,
         })
-        
+        print("total_contacts: ", total_contacts)
         return res
-
-
-    
 
     
     def create_channel_service(self):
@@ -141,135 +141,94 @@ class ResellerModule(models.Model):
         
     def sync_contacts(self):
         """Sincroniza contactos con la base de datos de Odoo"""
-        # try:
-        contacts = list(self.fetch_contacts())
-        contact = contacts[0]
-        record_count = self.env['reseller.partner'].search_count([])
+        try:
+            contacts = list(self.fetch_contacts())
+            contact = contacts[0]
+
+            record_count = self.env['reseller.partner'].search_count([])
             
-        if not contacts:
-            return
-        category_ids = self.create_labels()
-            
-        for contact in contacts:
-            name = getattr( contact, 'name', None)
-            org_display_name = getattr( contact, 'org_display_name', None)            
-            org_postal_address = getattr(contact, 'org_postal_address', None)
-            
-            if org_postal_address:
-                region_code = getattr(org_postal_address, 'region_code', None)
-                postal_code = getattr(org_postal_address, 'postal_code', None)
-                administrative_area = getattr(org_postal_address, 'administrative_area', None)
-                locality = getattr(org_postal_address, 'locality', None)
-                sublocality = getattr(org_postal_address, 'sublocality', None)
+            if not contacts:
+                return
+
+            category_ids = self.create_labels()
                 
-                address_lines = list(getattr(org_postal_address, 'address_lines', []))
+            for contact in contacts:
+                name = getattr( contact, 'name', None)
+                org_display_name = getattr( contact, 'org_display_name', None)            
+                org_postal_address = getattr(contact, 'org_postal_address', None)
                 
-                if len(address_lines) > 0:
-                    address_line_1 = address_lines[0] if len(address_lines) > 0 else ""
-                    address_line_2 = address_lines[1] if len(address_lines) > 1 else ""
-                    address_line_3 = address_lines[2] if len(address_lines) > 2 else ""
+                if org_postal_address:
+                    region_code = getattr(org_postal_address, 'region_code', None)
+                    postal_code = getattr(org_postal_address, 'postal_code', None)
+                    administrative_area = getattr(org_postal_address, 'administrative_area', None)
+                    locality = getattr(org_postal_address, 'locality', None)
+                    sublocality = getattr(org_postal_address, 'sublocality', None)
+                    
+                    address_lines = list(getattr(org_postal_address, 'address_lines', []))
+                    
+                    if len(address_lines) > 0:
+                        address_line_1 = address_lines[0] if len(address_lines) > 0 else ""
+                        address_line_2 = address_lines[1] if len(address_lines) > 1 else ""
+                        address_line_3 = address_lines[2] if len(address_lines) > 2 else ""
+                    else:
+                        address_line_1 = ""
+                        address_line_2 = ""
+                        address_line_3 = ""
+                
+                    organization = getattr(org_postal_address, 'organization', None)
                 else:
-                    address_line_1 = ""
-                    address_line_2 = ""
-                    address_line_3 = ""
-            
-                organization = getattr(org_postal_address, 'organization', None)
-            else:
-                print("No se encontró información de contacto principal para este registro")
-            
-            primary_contact_info = getattr(contact, 'primary_contact_info', None)
-            if primary_contact_info:
-                display_name = getattr(primary_contact_info, 'display_name', None)
-                first_name = getattr(primary_contact_info, 'first_name', None)
-                last_name = getattr(primary_contact_info, 'last_name', None)
-                email = getattr(primary_contact_info, 'email', None)
-                phone = getattr(primary_contact_info, 'phone', None)
-            
-            else:
-                print("No se encontró información de contacto principal para este registro")
+                    print("No se encontró información de contacto principal para este registro")
                 
-            alternate_email = getattr( contact, 'alternate_email', None)
-            domain = getattr( contact, 'domain', None)
-            cloud_identity_id = getattr( contact, 'cloud_identity_id', None)
-            language_code = getattr( contact, 'language_code', None)        
-            full_address_lines = address_line_1 + ' ' + address_line_2 + address_line_3
-            
-            full_address = address_line_1 + ' ' + address_line_2 + address_line_3 + ' ' + locality + ' ' + administrative_area + ' ' + postal_code + ' ' + region_code
-            
-            reseller_vals = {
-                'name': name,
-                'org_display_name': org_display_name,
-                'region_code': region_code,
-                'postal_code': postal_code,
-                'administrative_area': administrative_area,
-                'locality': locality,
-                'sublocality': sublocality,
-                'address': full_address_lines,
-                'address_line_1': address_line_1,
-                'address_line_2': address_line_2,
-                'address_line_3': address_line_3,
-                'organization': organization,
-                'first_name': first_name,
-                'last_name': last_name,
-                'display_name': display_name,
-                'email': email,
-                'phone': phone,
-                'alternate_email': alternate_email,
-                'domain': domain,
-                'cloud_identity_id': cloud_identity_id,
-                'language_code': language_code,
-            }
-            
-            reseller_data = {k: v for k, v in reseller_vals.items() if v != ''}
-            
-            if record_count == 0:
-                reseller = self.env['reseller.partner'].create(reseller_data)
-                _logger.info("Nuevo contacto de Reseller Partner creado: %s", reseller)
+                primary_contact_info = getattr(contact, 'primary_contact_info', None)
+
+                if primary_contact_info:
+                    display_name = getattr(primary_contact_info, 'display_name', None)
+                    first_name = getattr(primary_contact_info, 'first_name', None)
+                    last_name = getattr(primary_contact_info, 'last_name', None)
+                    email = getattr(primary_contact_info, 'email', None)
+                    phone = getattr(primary_contact_info, 'phone', None)
                 
-            else:
-                reseller = self.env['reseller.partner'].search([('cloud_identity_id', '=', cloud_identity_id)], limit=1)
-                
-                if reseller:
-                    reseller.write(reseller_data)
-                    _logger.info("Nuevo contacto creado: %s", reseller)
                 else:
+                    print("No se encontró información de contacto principal para este registro")
+                    
+                alternate_email = getattr( contact, 'alternate_email', None)
+                domain = getattr( contact, 'domain', None)
+                cloud_identity_id = getattr( contact, 'cloud_identity_id', None)
+                language_code = getattr( contact, 'language_code', None)        
+                full_address_lines = address_line_1 + ' ' + address_line_2 + address_line_3
+                
+                full_address = address_line_1 + ' ' + address_line_2 + address_line_3 + ' ' + locality + ' ' + administrative_area + ' ' + postal_code + ' ' + region_code
+                
+                reseller_vals = {
+                    'name': name,
+                    'org_display_name': org_display_name,
+                    'region_code': region_code,
+                    'postal_code': postal_code,
+                    'administrative_area': administrative_area,
+                    'locality': locality,
+                    'sublocality': sublocality,
+                    'address': full_address_lines,
+                    'address_line_1': address_line_1,
+                    'address_line_2': address_line_2,
+                    'address_line_3': address_line_3,
+                    'organization': organization,
+                    'first_name': first_name,
+                    'last_name': last_name,
+                    'display_name': display_name,
+                    'email': email,
+                    'phone': phone,
+                    'alternate_email': alternate_email,
+                    'domain': domain,
+                    'cloud_identity_id': cloud_identity_id,
+                    'language_code': language_code,
+                }
+                
+                reseller_data = {k: v for k, v in reseller_vals.items() if v != ''}
+                
+                if record_count == 0:
                     reseller = self.env['reseller.partner'].create(reseller_data)
                     _logger.info("Nuevo contacto en tabla reseller_partner creado: %s", reseller)
                     
-            
-            # Company contact
-            company_vals = {
-                'contact_address': full_address.strip(),
-                'country_code': region_code,
-                'date': '',
-                'display_name': org_display_name,
-                'name': org_display_name,
-                'commercial_company_name': org_display_name,
-                # 'lang': language_code,
-                # 'lang': 'en_US',
-                # 'phone': phone,
-                'website': domain,
-                'type': 'contact',
-                'is_company': True,
-                'zip': postal_code,
-                'street': address_line_1,
-                'street2': address_line_2,
-                'category_id': [(6, 0, category_ids)],
-            }
-            
-            company_data = {k: v for k, v in company_vals.items() if v != ''}
-            
-            # Create company contact
-            if record_count == 0:
-                company = self.env['res.partner'].create(company_data)
-                _logger.info("Nuevo contacto de Reseller Partner creado: %s", reseller)
-                
-            else:
-                company = self.env['res.partner'].search([('name', '=', org_display_name)], limit=1)
-                
-                if company:
-                    company.write(company_data)
-                    _logger.info("Nuevo contacto creado: %s", company)
                 else:
                     reseller = self.env['reseller.partner'].search([('name', '=', name)], limit=1)
                     
@@ -374,14 +333,14 @@ class ResellerModule(models.Model):
 
                 self.complement_contacts(reseller, company.id, category_ids)
 
-        # except ValueError as e:
-        #     _logger.error("Error al procesar la respuesta de la API: %s", e)
+        except ValueError as e:
+            _logger.error("Error al procesar la respuesta de la API: %s", e)
 
-        # except Exception as e:
-        #     _logger.error("Se produjo un error inesperado: %s", e)
+        except Exception as e:
+            _logger.error("Se produjo un error inesperado: %s", e)
         
 
-            _logger.info("Todos los contactos fueron sincronizados")
+        _logger.info("Todos los contactos fueron sincronizados")
     
             
     def create_labels(self):
@@ -396,6 +355,8 @@ class ResellerModule(models.Model):
             category_ids.append(category.id)
         
         return category_ids
+    
+
 class ResPartner(models.Model):
     _inherit = 'res.partner'
 
@@ -411,11 +372,7 @@ class ResPartner(models.Model):
         for partner in self:
             partner.contactos_odoo = self.env['res.partner'].search([])  # Todos los contactos
 
-    
 
-
-    
-    
     def complement_contacts(self, reseller, company_id, category_ids):
         try:
             
