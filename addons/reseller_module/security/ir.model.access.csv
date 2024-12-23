@@ -1,3 +1,4 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_reseller_module_reseller_module,reseller_module.reseller_module,model_reseller_module,base.group_user,1,1,1,1
 access_reseller_partner,reseller.partner,model_reseller_partner,base.group_user,1,1,1,1
+access_reseller_subscription_user,reseller.subscription user,model_reseller_subscription,base.group_user,1,1,1,1

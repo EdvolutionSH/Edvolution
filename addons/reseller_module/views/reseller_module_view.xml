@@ -24,12 +24,14 @@
         <field name="arch" type="xml">
             <form string="Reseller module">
                 <sheet>
-                    <group>
-                        <button string="Sincronizar Contactos"
-                                type="object"
-                                name="sync_contacts"
-                                class="btn-primary"/>
-                    </group>
+                    <div class="row">
+                        <group class="col-4">
+                            <button string="Sincronizar Contactos"
+                                    type="object"
+                                    name="sync_contacts"
+                                    class="btn-primary"/>
+                        </group>
+                    </div>
                     <!-- Agregar un panel con dos columnas -->
                     
                         <div class="row">

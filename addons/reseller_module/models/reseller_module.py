@@ -112,6 +112,32 @@ class ResellerModule(models.Model):
         except Exception as e:
             _logger.error(f"Error al autenticar: {e}")
             return None
+        
+    def create_reseller_service(self):
+        """Autentica la service account para acceder a la API"""
+        try:
+            credentials = service_account.Credentials.from_service_account_file(
+                SERVICE_ACCOUNT_FILE, 
+                scopes=["https://www.googleapis.com/auth/apps.order"])
+            
+            # Set up credentials with user impersonation
+            reseller_admin_user = GOOGLE_RESELLER_ADMIN_USER
+
+            delegated_credentials = credentials.with_subject(reseller_admin_user)
+            
+            # Create the API client
+            reseller_service = build(
+                serviceName='reseller',
+                version='v1',
+                credentials=delegated_credentials
+            )
+
+            return reseller_service
+
+        except Exception as e:
+            _logger.error(f"Error al autenticar: {e}")
+            return None
+
 
     def fetch_contacts(self):
         """Obtiene la lista de contactos de la API y devuelve los datos"""
@@ -138,6 +164,8 @@ class ResellerModule(models.Model):
     def sync_contacts(self):
         """Sincroniza contactos con la base de datos de Odoo"""
         try:
+            # self.sync_subscriptions('C00qonywf')
+            # return
             contacts = list(self.fetch_contacts())
             contact = contacts[0]
 
@@ -234,6 +262,9 @@ class ResellerModule(models.Model):
                     else:
                         reseller = self.env['reseller.partner'].create(reseller_data)
                         _logger.info("Nuevo contacto en tabla reseller_partner creado: %s", reseller)
+
+                self.sync_subscriptions(reseller)
+                # return
                 
                 # Company contact
                 company_vals = {
@@ -440,6 +471,132 @@ class ResellerModule(models.Model):
             _logger.error(f"Error al obtener contactos: {e}")
             return []
     
+
+    def sync_subscriptions(self, reseller):
+        """Sincroniza contactos con la base de datos de Odoo"""
+        try:
+            reseller_service = self.create_reseller_service()
+            
+            # if subscriptions:
+            #     for subscription in subscriptions:
+            #         print("Suscripción: ", subscription)
+            # else:
+            #     print(f"No subscriptions found for customer ID: C00qonywf")
+
+            subscriptions = []
+            try:
+                # response = reseller_service.subscriptions().list(customerId=reseller).execute()
+                response = reseller_service.subscriptions().list(customerId=reseller.cloud_identity_id).execute()
+        
+                # Verifica si el cliente tiene suscripciones
+                subscriptions = response.get('subscriptions', [])
+
+            except HttpError as error:
+                if int(error.resp.get('status', 0)) == 403:  # Error de permisos
+                    _logger.warning("Error de permisos al obtener suscripciones para cliente %s: %s", reseller.cloud_identity_id, error)
+                    # _logger.warning("Error de permisos al obtener suscripciones para cliente %s: %s", reseller, error)
+                elif int(error.resp.get('status', 0)) == 404:  # Reseller no encontrado
+                    _logger.warning("Cliente no encontrado: %s", reseller.cloud_identity_id)
+                    # _logger.warning("Cliente no encontrado: %s", reseller)
+                else:
+                    _logger.error("Error inesperado al obtener suscripciones para cliente %s: %s", reseller.cloud_identity_id, error)
+                    # _logger.error("Error inesperado al obtener suscripciones para cliente %s: %s", reseller, error)
+            except Exception as e:
+                _logger.error("Error desconocido al obtener suscripciones: %s", e)
+            
+            # Si no hay suscripciones, return
+            if not subscriptions:
+                _logger.info("No se encontraron suscripciones para el cliente %s.", reseller.cloud_identity_id)
+                # _logger.info("No se encontraron suscripciones para el cliente %s.", reseller)
+                return []
+
+            for subscription in subscriptions:
+                # print(subscription)
+                kind = subscription.get('kind', None)            
+                customerId = subscription.get('customerId', None)
+                subscriptionId = subscription.get('subscriptionId', None)
+                skuId = subscription.get('skuId', None)
+                billingMethod = subscription.get('billingMethod', None)
+                creationTime = subscription.get('creationTime', None)
+                purchaseOrderId = subscription.get('purchaseOrderId', None)
+                status = subscription.get('status', None)
+                resourceUiUrl = subscription.get('resourceUiUrl', None)
+                skuName = subscription.get('skuName', None)
+                
+                plan = subscription.get('plan', {})
+                planName = plan.get('planName', None)
+                isCommitmentPlan = plan.get('isCommitmentPlan', None)
+                
+                # Inicializa las variables por defecto
+                startTime = None
+                endTime = None
+                
+                commitmentInterval = plan.get('commitmentInterval', {})
+                if commitmentInterval:
+                    startTime = commitmentInterval.get('startTime', None)
+                    endTime = commitmentInterval.get('endTime', None)
+                
+                trialSettings = subscription.get('trialSettings', {})
+                isInTrial = trialSettings.get('isInTrial', None)
+
+                seats = subscription.get('seats', {})
+                numberOfSeats = seats.get('numberOfSeats', None)
+                licensedNumberOfSeats = seats.get('licensedNumberOfSeats', None)
+
+                renewalSettings = subscription.get('renewalSettings', {})
+                renewalType = renewalSettings.get('renewalType', None)
+                
+                subscription_vals = {
+                    'kind': kind,
+                    'customerId': customerId,
+                    'subscriptionId': subscriptionId,
+                    'skuId': skuId,
+                    'billingMethod': billingMethod,
+                    'creationTime': creationTime,
+                    'purchaseOrderId': purchaseOrderId,
+                    'status': status,
+                    'resourceUiUrl': resourceUiUrl,
+                    'skuName': skuName,
+                    'planName': planName,
+                    'isCommitmentPlan': isCommitmentPlan,
+                    'startTime': startTime,
+                    'endTime': endTime,
+                    'isInTrial': isInTrial,
+                    'numberOfSeats': numberOfSeats,
+                    'licensedNumberOfSeats': licensedNumberOfSeats,
+                    'renewalType': renewalType,
+                }
+                
+                subscription_data = {k: v for k, v in subscription_vals.items() if v != ''}
+                # print(subscription_data)
+                subscription = self.env['reseller.subscription'].search([('subscriptionId', '=', subscriptionId)], limit=1)
+                
+                # TODO actualizar subscriptionId al momento de actualizar los datos de una suscripción, i.e. después de actualizar y regresar el objeto, actualizar el valor
+                
+                if subscription:
+                    subscription.write(subscription_data)
+                    _logger.info("Contacto en tabla reseller_subscription actualizado: %s", subscription)
+                else:
+                    subscription = self.env['reseller.subscription'].create(subscription_data)
+                    _logger.info("Nuevo contacto en tabla reseller_subscription creado: %s", subscription)
+                    
+                 # Check if the relationship already exists before adding
+                if subscription.id not in reseller.reseller_subscription_ids.ids:
+                    reseller.reseller_subscription_ids = [(4, subscription.id)]
+                    _logger.info("Relación de persona creada con ID: %s", subscription.id)
+                else:
+                    _logger.info("La relación ya existe para la persona con ID: %s", subscription.id)
+                
+
+        except ValueError as e:
+            _logger.error("Error al procesar la respuesta de la API: %s", e)
+
+        except Exception as e:
+            _logger.error("Se produjo un error inesperado: %s", e)
+        
+
+        _logger.info("Todos los contactos fueron sincronizados")
+        
 
 class ResPartner(models.Model):
     _inherit = 'res.partner'
