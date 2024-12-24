@@ -1,0 +1,71 @@
+<odoo>
+    <!-- Vista Tree para suscripciones -->
+    <record id="view_reseller_subscription_tree" model="ir.ui.view">
+        <field name="name">reseller.subscription.tree</field>
+        <field name="model">reseller.subscription</field>
+        <field name="arch" type="xml">
+            <tree string="Suscripciones">
+                <field name="customerId" string="Cliente"/>
+                <field name="skuName" string="Nombre SKU"/>
+                <field name="subscriptionId" string="ID de Suscripción"/>
+                <field name="status" string="Estado"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Vista Form para reseller.subscription -->
+    <record id="view_reseller_subscription_form" model="ir.ui.view">
+        <field name="name">reseller.subscription.form</field>
+        <field name="model">reseller.subscription</field>
+        <field name="arch" type="xml">
+            <form string="Detalle de Suscripción">
+                <sheet>
+                    <group>
+                        <field name="customerId" string="ID Cliente"/>
+                        <field name="subscriptionId" string="ID de la suscripción"/>
+                        <field name="skuName" string="Nombre SKU"/>
+                        <field name="planName" string="Plan"/>
+                        <field name="status" readonly="1"/>
+                        <field name="licensedNumberOfSeats"/>
+                        <field name="startTime"/>
+                        <field name="endTime"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Acción para Suscripciones Activas -->
+    <record id="action_reseller_subscription_active" model="ir.actions.act_window">
+        <field name="name">Suscripciones Activas</field>
+        <field name="res_model">reseller.subscription</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('status', '=', 'ACTIVE')]</field>
+        <field name="view_id" ref="view_reseller_subscription_tree"/>
+    </record>
+
+    <!-- Acción para Suscripciones Suspendidas -->
+    <record id="action_subscriptions_suspended" model="ir.actions.act_window">
+        <field name="name">Suscripciones Suspendidas</field>
+        <field name="res_model">reseller.subscription</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="view_reseller_subscription_tree"/>
+        <field name="domain">[('status', '=', 'SUSPENDED')]</field>
+    </record>
+
+    <!-- Acción para Suscripciones Canceladas -->
+    <!-- <record id="action_subscriptions_cancelled" model="ir.actions.act_window">
+        <field name="name">Suscripciones Canceladas</field>
+        <field name="res_model">reseller.subscription</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="view_reseller_subscription_tree"/>
+        <field name="domain">[('status', '=', 'Cancelled')]</field>
+    </record> -->
+
+    <!-- Menús para las nuevas vistas -->
+     <!-- Agregar la acción al menú Suscripciones -->
+    <menuitem id="menu_subscriptions_active" name="Activas" parent="menu_subscriptions" action="action_reseller_subscription_active" sequence="40"/>
+    <menuitem id="menu_subscriptions_suspended" name="Suspendidas" parent="menu_subscriptions" action="action_subscriptions_suspended" sequence="50"/>
+    <!-- <menuitem id="menu_subscriptions_cancelled" name="Canceladas" parent="menu_subscriptions" action="action_subscriptions_cancelled" sequence="60"/> -->
+
+</odoo>

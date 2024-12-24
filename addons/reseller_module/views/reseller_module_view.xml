@@ -90,28 +90,28 @@
     </record>
 
     <!-- Acción para Suscripciones Vigentes -->
-    <record id="action_subscriptions_vigentes" model="ir.actions.act_window">
+    <!-- <record id="action_subscriptions_vigentes" model="ir.actions.act_window">
         <field name="name">Suscripciones Vigentes</field>
         <field name="res_model">reseller.module</field>
         <field name="view_mode">tree,form</field>
         <field name="domain">[('status', '=', 'vigente')]</field>
-    </record>
+    </record> -->
 
     <!-- Acción para Suscripciones Por vencer -->
-    <record id="action_subscriptions_por_vencer" model="ir.actions.act_window">
+    <!-- <record id="action_subscriptions_por_vencer" model="ir.actions.act_window">
         <field name="name">Suscripciones Por Vencer</field>
         <field name="res_model">reseller.module</field>
         <field name="view_mode">tree,form</field>
         <field name="domain">[('status', '=', 'por_vencer')]</field>
-    </record>
+    </record> -->
 
     <!-- Acción para Suscripciones Vencidas -->
-    <record id="action_subscriptions_vencidas" model="ir.actions.act_window">
+    <!-- <record id="action_subscriptions_vencidas" model="ir.actions.act_window">
         <field name="name">Suscripciones Vencidas</field>
         <field name="res_model">reseller.module</field>
         <field name="view_mode">tree,form</field>
         <field name="domain">[('status', '=', 'vencida')]</field>
-    </record>
+    </record> -->
 
     <!-- Acción para vista reportes-->
     <record id="action_reports_domain" model="ir.actions.act_window">
@@ -133,9 +133,9 @@
     <menuitem id="menu_subscriptions" name="Suscripciones" parent="reseller_module_menu_root" sequence="20"/>
 
     <!-- Opciones dentro del submenú Suscripciones -->
-    <menuitem id="menu_subscriptions_vigentes" name="Vigentes" parent="menu_subscriptions" action="action_subscriptions_vigentes" sequence="10"/>
-    <menuitem id="menu_subscriptions_por_vencer" name="Por vencer" parent="menu_subscriptions" action="action_subscriptions_por_vencer" sequence="20"/>
-    <menuitem id="menu_subscriptions_vencidas" name="Vencidas" parent="menu_subscriptions" action="action_subscriptions_vencidas" sequence="30"/>
+    <!-- <menuitem id="menu_subscriptions_vigentes" name="Vigentes" parent="menu_subscriptions" action="action_subscriptions_vigentes" sequence="10"/> -->
+    <!-- <menuitem id="menu_subscriptions_por_vencer" name="Por vencer" parent="menu_subscriptions" action="action_subscriptions_por_vencer" sequence="20"/> -->
+    <!-- <menuitem id="menu_subscriptions_vencidas" name="Vencidas" parent="menu_subscriptions" action="action_subscriptions_vencidas" sequence="30"/> -->
 
     <menuitem id="menu_reports" name="Reportes" parent="reseller_module_menu_root" sequence="30"/>
     <menuitem id="menu_reports_domains" name="Reporte de margen" parent="menu_reports" action="action_reports_domain" sequence="10"/>

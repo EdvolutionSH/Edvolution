@@ -19,7 +19,7 @@ class ResellerModule(models.Model):
     _name = 'reseller.module'    
     _description = 'Reseller Contact Sync'
 
-    name = fields.Char(string="Reseller Name")  # Campo para identificar el módulo
+    # name = fields.Char(string="Reseller Name")  # Campo para identificar el módulo
     contact_ids = fields.One2many(
         comodel_name='res.partner',  # Modelo relacionado
         inverse_name='reseller_id',  # Campo inverso en res.partner
