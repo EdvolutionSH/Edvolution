@@ -5,10 +5,12 @@
         <field name="model">reseller.subscription</field>
         <field name="arch" type="xml">
             <tree string="Suscripciones">
-                <field name="customerId" string="Cliente"/>
                 <field name="skuName" string="Nombre SKU"/>
                 <field name="subscriptionId" string="ID de Suscripción"/>
                 <field name="status" string="Estado"/>
+                <field name="planName" string="Plan"/>
+                <field name="formattedStartTime" string="Fecha Inicial"/>
+                <field name="formattedEndTime" string="Fecha Final"/>
             </tree>
         </field>
     </record>
@@ -21,14 +23,18 @@
             <form string="Detalle de Suscripción">
                 <sheet>
                     <group>
-                        <field name="customerId" string="ID Cliente"/>
-                        <field name="subscriptionId" string="ID de la suscripción"/>
-                        <field name="skuName" string="Nombre SKU"/>
-                        <field name="planName" string="Plan"/>
+                        <field name="related_partner_names" string="Cliente" readonly="1"/>
+                        <field name="subscriptionId" string="ID de la suscripción" readonly="1"/>
+                        <field name="skuName" string="Nombre SKU" readonly="1"/>
+                        <field name="skuId" string="SKU ID" readonly="1"/>
+                        <field name="planName" string="Plan" readonly="1"/>
                         <field name="status" readonly="1"/>
-                        <field name="licensedNumberOfSeats"/>
-                        <field name="startTime"/>
-                        <field name="endTime"/>
+                        <field name="licensedNumberOfSeats" readonly="1"/>
+                        <field name="formattedStartTime" string="Fecha Inicial" readonly="1"/>
+                        <field name="formattedEndTime" string="Fecha Final" readonly="1"/>
+                        <field name="isInTrial" string="Plan de prueba" readonly="1"/>
+                        <field name="renewalType" string="Configuración de renovación del plan de compromiso anual" readonly="1"/>
+                        <field name="isCommitmentPlan" string="Plan de compromiso anual" readonly="1"/>
                     </group>
                 </sheet>
             </form>
@@ -42,6 +48,8 @@
         <field name="view_mode">tree,form</field>
         <field name="domain">[('status', '=', 'ACTIVE')]</field>
         <field name="view_id" ref="view_reseller_subscription_tree"/>
+        <field name="context">{'group_by': 'related_partner_names'}</field>
+
     </record>
 
     <!-- Acción para Suscripciones Suspendidas -->
@@ -51,21 +59,12 @@
         <field name="view_mode">tree,form</field>
         <field name="view_id" ref="view_reseller_subscription_tree"/>
         <field name="domain">[('status', '=', 'SUSPENDED')]</field>
+        <field name="context">{'group_by': 'customerId'}</field>
     </record>
-
-    <!-- Acción para Suscripciones Canceladas -->
-    <!-- <record id="action_subscriptions_cancelled" model="ir.actions.act_window">
-        <field name="name">Suscripciones Canceladas</field>
-        <field name="res_model">reseller.subscription</field>
-        <field name="view_mode">tree,form</field>
-        <field name="view_id" ref="view_reseller_subscription_tree"/>
-        <field name="domain">[('status', '=', 'Cancelled')]</field>
-    </record> -->
 
     <!-- Menús para las nuevas vistas -->
      <!-- Agregar la acción al menú Suscripciones -->
     <menuitem id="menu_subscriptions_active" name="Activas" parent="menu_subscriptions" action="action_reseller_subscription_active" sequence="40"/>
     <menuitem id="menu_subscriptions_suspended" name="Suspendidas" parent="menu_subscriptions" action="action_subscriptions_suspended" sequence="50"/>
-    <!-- <menuitem id="menu_subscriptions_cancelled" name="Canceladas" parent="menu_subscriptions" action="action_subscriptions_cancelled" sequence="60"/> -->
 
 </odoo>

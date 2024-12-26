@@ -1,4 +1,5 @@
-from odoo import models, fields
+from odoo import models, fields, api
+from datetime import datetime
 
 class ResellerSubscription(models.Model):
     _name = 'reseller.subscription'  # Nombre técnico del modelo
@@ -36,3 +37,48 @@ class ResellerSubscription(models.Model):
         'reseller_id',           # Nombre del campo en la tabla intermedia que apunta a 'reseller.partner'
         string='Related Partners'
     )
+    formattedStartTime = fields.Char(string="Fecha Inicial Formateada", compute="_compute_formatted_date")
+    formattedEndTime = fields.Char(string="Fecha Final Formateada", compute="_compute_formatted_end_date")
+
+    @api.depends('startTime')
+    def _compute_formatted_date(self):
+        for record in self:
+            print("Record: %s", record)
+            print(record.startTime)
+            if record.startTime:
+                try:
+                    # Convertir milisegundos a fecha
+                    date_obj = datetime.fromtimestamp(int(record.startTime) / 1000)
+                    record.formattedStartTime = date_obj.strftime('%d/%m/%Y')
+                except (ValueError, TypeError):
+                    record.formattedStartTime = 'Fecha no válida'
+            else:
+                # Manejar casos donde el campo es None o vacío
+                record.formattedStartTime = 'Fecha no disponible'
+                
+    @api.depends('endTime')
+    def _compute_formatted_end_date(self):
+        for record in self:
+            if record.endTime:
+                try:
+                    # Convertir milisegundos a fecha
+                    date_obj = datetime.fromtimestamp(int(record.endTime) / 1000)
+                    record.formattedEndTime = date_obj.strftime('%d/%m/%Y')
+                except (ValueError, TypeError):
+                    record.formattedEndTime = 'Fecha no válida'
+            else:
+                # Manejar casos donde el campo es None o vacío
+                record.formattedEndTime = 'Fecha no disponible'
+                
+    related_partner_names = fields.Char(
+        string="Nombres de Partners Relacionados",
+        compute="_compute_related_partner_names",
+        store=True)
+
+    @api.depends('reseller_ids')
+    def _compute_related_partner_names(self):
+        for record in self:
+            if record.reseller_ids:
+                record.related_partner_names = ", ".join(record.reseller_ids.mapped('org_display_name'))
+            else:
+                record.related_partner_names = "Sin socios relacionados"
