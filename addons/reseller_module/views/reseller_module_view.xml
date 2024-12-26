@@ -87,13 +87,34 @@
         <field name="context">{'group_by': 'parent_id'}</field>
     </record>
 
-    <!-- Acción para vista reportes-->
-    <record id="action_reports_domain" model="ir.actions.act_window">
-        <field name="name">Reporte por dominios</field>
-        <field name="res_model">reseller.module</field>
-        <field name="view_mode">tree,form</field>
-        <field name="domain">[('status', '=', 'por_vencer')]</field>
+    <!-- Acción para Actualizar contactos-->
+    <record id="view_generate_report" model="ir.ui.view">
+        <field name="name">reseller.module.form</field>
+        <field name="model">reseller.module</field>
+        <field name="arch" type="xml">
+            <form string="Reseller module">
+                <sheet>
+                    <div class="row">
+                        <group class="col-4">
+                            <button string="Generar reporte"
+                                    type="object"
+                                    name="generate_report"
+                                    class="btn-primary"/>
+                        </group>
+                    </div>                    
+                </sheet>
+            </form>
+        </field>
     </record>
+
+    <record id="action_reports_domain" model="ir.actions.act_window">
+        <field name="name">Generar reporte</field>
+        <field name="res_model">reseller.module</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_generate_report"/>
+        <field name="target">current</field>
+    </record>
+
 
     <!-- Menú principal -->
     <menuitem id="reseller_module_menu_root" name="Reseller Module" sequence="10"/>
@@ -106,8 +127,10 @@
     <!-- Submenú Suscripciones -->
     <menuitem id="menu_subscriptions" name="Suscripciones" parent="reseller_module_menu_root" sequence="20"/>
 
-    <!-- Opciones dentro del submenú Suscripciones -->
+    <!--  -->
     <menuitem id="menu_reports" name="Reportes" parent="reseller_module_menu_root" sequence="30"/>
     <menuitem id="menu_reports_domains" name="Reporte de margen" parent="menu_reports" action="action_reports_domain" sequence="10"/>
+
+
     
 </odoo>

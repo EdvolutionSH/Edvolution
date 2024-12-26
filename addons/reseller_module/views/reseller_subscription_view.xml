@@ -57,9 +57,9 @@
         <field name="name">Suscripciones Suspendidas</field>
         <field name="res_model">reseller.subscription</field>
         <field name="view_mode">tree,form</field>
-        <field name="view_id" ref="view_reseller_subscription_tree"/>
         <field name="domain">[('status', '=', 'SUSPENDED')]</field>
-        <field name="context">{'group_by': 'customerId'}</field>
+        <field name="view_id" ref="view_reseller_subscription_tree"/>
+        <field name="context">{'group_by': 'related_partner_names'}</field>
     </record>
 
     <!-- Menús para las nuevas vistas -->
