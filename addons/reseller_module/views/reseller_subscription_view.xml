@@ -15,56 +15,38 @@
         </field>
     </record>
 
-    <!-- Vista Form para reseller.subscription -->
-    <record id="view_reseller_subscription_form" model="ir.ui.view">
+    <!-- Menús para Suscripciones -->
+    <menuitem id="menu_subscriptions" name="Suscripciones" parent="reseller_module_menu_root" sequence="20"/>
+    
+    <!-- Acción para Actualizar contactos-->
+    <record id="view_generate_report" model="ir.ui.view">
         <field name="name">reseller.subscription.form</field>
         <field name="model">reseller.subscription</field>
         <field name="arch" type="xml">
-            <form string="Detalle de Suscripción">
+            <form string="Reseller module">
                 <sheet>
-                    <group>
-                        <field name="related_partner_names" string="Cliente" readonly="1"/>
-                        <field name="subscriptionId" string="ID de la suscripción" readonly="1"/>
-                        <field name="skuName" string="Nombre SKU" readonly="1"/>
-                        <field name="skuId" string="SKU ID" readonly="1"/>
-                        <field name="planName" string="Plan" readonly="1"/>
-                        <field name="status" readonly="1"/>
-                        <field name="licensedNumberOfSeats" readonly="1"/>
-                        <field name="formattedStartTime" string="Fecha Inicial" readonly="1"/>
-                        <field name="formattedEndTime" string="Fecha Final" readonly="1"/>
-                        <field name="isInTrial" string="Plan de prueba" readonly="1"/>
-                        <field name="renewalType" string="Configuración de renovación del plan de compromiso anual" readonly="1"/>
-                        <field name="isCommitmentPlan" string="Plan de compromiso anual" readonly="1"/>
-                    </group>
+                    <div class="row">
+                        <group class="col-4">
+                            <button string="Generar reporte"
+                                    type="object"
+                                    name="generate_report"
+                                    class="btn-primary"/>
+                        </group>
+                    </div>                    
                 </sheet>
             </form>
         </field>
     </record>
 
-    <!-- Acción para Suscripciones Activas -->
-    <record id="action_reseller_subscription_active" model="ir.actions.act_window">
-        <field name="name">Suscripciones Activas</field>
+    <record id="action_reports_domain" model="ir.actions.act_window">
+        <field name="name">Generar reporte</field>
         <field name="res_model">reseller.subscription</field>
-        <field name="view_mode">tree,form</field>
-        <field name="domain">[('status', '=', 'ACTIVE')]</field>
-        <field name="view_id" ref="view_reseller_subscription_tree"/>
-        <field name="context">{'group_by': 'related_partner_names'}</field>
-
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_generate_report"/>
+        <field name="target">current</field>
     </record>
 
-    <!-- Acción para Suscripciones Suspendidas -->
-    <record id="action_subscriptions_suspended" model="ir.actions.act_window">
-        <field name="name">Suscripciones Suspendidas</field>
-        <field name="res_model">reseller.subscription</field>
-        <field name="view_mode">tree,form</field>
-        <field name="domain">[('status', '=', 'SUSPENDED')]</field>
-        <field name="view_id" ref="view_reseller_subscription_tree"/>
-        <field name="context">{'group_by': 'related_partner_names'}</field>
-    </record>
-
-    <!-- Menús para las nuevas vistas -->
-     <!-- Agregar la acción al menú Suscripciones -->
-    <menuitem id="menu_subscriptions_active" name="Activas" parent="menu_subscriptions" action="action_reseller_subscription_active" sequence="40"/>
-    <menuitem id="menu_subscriptions_suspended" name="Suspendidas" parent="menu_subscriptions" action="action_subscriptions_suspended" sequence="50"/>
-
+    <!--  -->
+    <menuitem id="menu_reports" name="Reportes" parent="reseller_module_menu_root" sequence="30"/>
+    <menuitem id="menu_reports_domains" name="Reporte de margen" parent="menu_reports" action="action_reports_domain" sequence="10"/>
 </odoo>

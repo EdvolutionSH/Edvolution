@@ -1,5 +1,8 @@
 from odoo import models, fields, api
 from datetime import datetime
+import io
+import base64
+import xlsxwriter
 
 class ResellerSubscription(models.Model):
     _name = 'reseller.subscription'  # Nombre técnico del modelo
@@ -37,14 +40,13 @@ class ResellerSubscription(models.Model):
         'reseller_id',           # Nombre del campo en la tabla intermedia que apunta a 'reseller.partner'
         string='Related Partners'
     )
-    formattedStartTime = fields.Char(string="Fecha Inicial Formateada", compute="_compute_formatted_date")
-    formattedEndTime = fields.Char(string="Fecha Final Formateada", compute="_compute_formatted_end_date")
+    formattedStartTime = fields.Char(string="Fecha Inicial", compute="_compute_formatted_date")
+    formattedEndTime = fields.Char(string="Fecha Final", compute="_compute_formatted_end_date")
+    formattedCreationTime = fields.Char(string="Fecha creación", compute="_compute_formatted_creation_date")
 
     @api.depends('startTime')
     def _compute_formatted_date(self):
         for record in self:
-            print("Record: %s", record)
-            print(record.startTime)
             if record.startTime:
                 try:
                     # Convertir milisegundos a fecha
@@ -70,6 +72,20 @@ class ResellerSubscription(models.Model):
                 # Manejar casos donde el campo es None o vacío
                 record.formattedEndTime = 'Fecha no disponible'
                 
+    @api.depends('creationTime')
+    def _compute_formatted_creation_date(self):
+        for record in self:
+            if record.creationTime:
+                try:
+                    # Convertir milisegundos a fecha
+                    date_obj = datetime.fromtimestamp(int(record.creationTime) / 1000)
+                    record.formattedCreationTime = date_obj.strftime('%d/%m/%Y')
+                except (ValueError, TypeError):
+                    record.formattedCreationTime = 'Fecha no válida'
+            else:
+                # Manejar casos donde el campo es None o vacío
+                record.formattedCreationTime = 'Fecha no disponible'
+
     related_partner_names = fields.Char(
         string="Nombres de Partners Relacionados",
         compute="_compute_related_partner_names",
@@ -82,3 +98,101 @@ class ResellerSubscription(models.Model):
                 record.related_partner_names = ", ".join(record.reseller_ids.mapped('org_display_name'))
             else:
                 record.related_partner_names = "Sin socios relacionados"
+                
+    def generate_report(self):
+        # Crear un buffer en memoria
+        output = io.BytesIO()
+
+        # Crear un archivo Excel
+        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+        worksheet = workbook.add_worksheet('Reporte')
+
+        # Headers
+        headers = [
+            'Cliente', # subscription -> reseller_partner
+            'Nombre Comercial', # subscription -> reseller_partner
+            'Suscripción',
+            'School Partne',
+            'Contrato',
+            'Producto',
+            'SKU', # subscription.skuName
+            'Fecha de creación (PST)', # 
+            'Estado de suscripción', # subscription.status
+            'Plan de pago', #subscription.planName
+            'Dia', # subscription
+            'Mes',
+            'Año',
+            'Pais',
+            'Licencias asignadas', # subscription.licensedNumberOfSeats
+            'Licencias a renovar',
+            'Precio vta x licencia Cliente',
+            'Monto mxn a cobrar Odoo',
+            'Descuento Odoo',
+            'Importe de descuento',
+            'Total pagado sin iva',
+            'Cliente paga',
+            'Costo unitario licencia Consola',
+            'Monto costo Mensual en factura Google',
+            'Monto a pagar a Google',
+            'Ganancia',
+            'Margen',
+            'Partner Advantage DR' #28
+        ]
+        for col_num, header in enumerate(headers):
+            worksheet.write(0, col_num, header)
+
+        subscriptions = self.env['reseller.subscription'].search([])
+        # Escribir datos
+        for row_num, subscription in enumerate(subscriptions, start=1):
+            worksheet.write(row_num, 0, subscription.related_partner_names) #Cliente # subscription -> reseller_partner
+            worksheet.write(row_num, 1, subscription.related_partner_names) #Nombre Comercial # subscription -> reseller_partner
+            worksheet.write(row_num, 2, "") #Suscripción
+            worksheet.write(row_num, 3, "") #School Partne
+            worksheet.write(row_num, 4, "") #Contrato
+            worksheet.write(row_num, 5, "") #Producto
+            worksheet.write(row_num, 6, subscription.skuName) #SKU # subscription.skuName
+            worksheet.write(row_num, 7, subscription.formattedCreationTime) #Fecha de creación (PST) # 
+            worksheet.write(row_num, 8, subscription.status) #Estado de suscripción # subscription.status
+            worksheet.write(row_num, 9, subscription.planName) #Plan de pago #subscription.planName
+            worksheet.write(row_num, 10, "") #Dia # subscription
+            worksheet.write(row_num, 11, "")  #Mes
+            worksheet.write(row_num, 12, "") #Año
+            worksheet.write(row_num, 13, "") #Pais
+            worksheet.write(row_num, 14, subscription.licensedNumberOfSeats) #Licencias asignadas # subscription.licensedNumberOfSeats
+            worksheet.write(row_num, 15, "") #Licencias a renovar
+            worksheet.write(row_num, 16, "") #Precio vta x licencia Cliente
+            worksheet.write(row_num, 17, "") #Monto mxn a cobrar Odoo
+            worksheet.write(row_num, 18, "")  #Descuento Odoo
+            worksheet.write(row_num, 19, "") #Importe de descuento
+            worksheet.write(row_num, 20, "") #Total pagado sin iva
+            worksheet.write(row_num, 21, "") #Cliente paga
+            worksheet.write(row_num, 22, "") #Costo unitario licencia Consola
+            worksheet.write(row_num, 23, "") #Monto costo Mensual en factura Google
+            worksheet.write(row_num, 24, "") #Monto a pagar a Google
+            worksheet.write(row_num, 25, "")  #Ganancia
+            worksheet.write(row_num, 26, "") #Margen
+            worksheet.write(row_num, 27, "") #Partner Advantage DR
+
+        # Cerrar el archivo Excel
+        workbook.close()
+        output.seek(0)
+
+        # Codificar el archivo en base64
+        file_data = base64.b64encode(output.read())
+        output.close()
+
+        # Crear un registro adjunto para el archivo
+        attachment = self.env['ir.attachment'].create({
+            'name': 'Reporte_Márgenes.xlsx',
+            'type': 'binary',
+            'datas': file_data,
+            'res_model': 'res.partner',
+            'res_id': self.id,
+        })
+
+        # Retornar una acción para descargar el archivo
+        return {
+            'type': 'ir.actions.act_url',
+            'url': f'/web/content/{attachment.id}?download=true',
+            'target': 'new',
+        }

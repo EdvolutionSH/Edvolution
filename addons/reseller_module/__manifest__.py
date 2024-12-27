@@ -29,6 +29,8 @@
         'security/ir.model.access.csv',
         'views/reseller_module_view.xml',
         'views/reseller_subscription_view.xml',
+        'views/reseller_subscription_view.xml',
+        'views/reseller_subscription_details_view.xml'
     ],
     'installable': True,
     'application': True,

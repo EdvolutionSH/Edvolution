@@ -278,7 +278,7 @@ class ResellerModule(models.Model):
                     'name': org_display_name,
                     'commercial_company_name': org_display_name,
                     # 'lang': language_code,
-                    'lang': 'en_US',
+                    # 'lang': 'en_US',
                     # 'phone': phone,
                     'website': domain,
                     'type': 'contact',
@@ -322,7 +322,7 @@ class ResellerModule(models.Model):
                     'name': display_name,
                     'email': email,
                     # 'lang': language_code,
-                    'lang': 'en_US',
+                    # 'lang': 'en_US',
                     'phone': phone,
                     'website': domain,
                     'parent_id': company.id,
@@ -599,55 +599,7 @@ class ResellerModule(models.Model):
         
 
         _logger.info("Todos los contactos fueron sincronizados")
-        
 
-    # @api.model
-    def generate_report(self):
-        # Crear un buffer en memoria
-        output = io.BytesIO()
-
-        # Crear un archivo Excel
-        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
-        worksheet = workbook.add_worksheet('Reporte')
-
-        # Escribir encabezados
-        # headers = ['Cliente', 'Nombre Comercial', 'Suscripción', 'School Partner', 'Contrato', 'Producto', 'SKU', 'Fecha de creación', 'Estado de suscripción', 'Plan de pagos', 'Día', 'Mes', 'Año', 'País', 'Licencias asignadas', 'Licencias a renovar','ID', 'Nombre', 'Correo Electrónico']
-        headers = ['Cliente', 'Suscripción ID', 'SKU ID']
-        for col_num, header in enumerate(headers):
-            worksheet.write(0, col_num, header)
-
-        subscriptions = self.env['reseller.subscription'].search([])
-        # Escribir datos
-        for row_num, subscription in enumerate(subscriptions, start=1):
-            worksheet.write(row_num, 0, subscription.customerId)
-            worksheet.write(row_num, 1, subscription.subscriptionId)
-            worksheet.write(row_num, 2, subscription.skuId)
-
-        # Cerrar el archivo Excel
-        workbook.close()
-        output.seek(0)
-
-        # Codificar el archivo en base64
-        file_data = base64.b64encode(output.read())
-        output.close()
-
-        # Crear un registro adjunto para el archivo
-        attachment = self.env['ir.attachment'].create({
-            'name': 'Reporte_Partners.xlsx',
-            'type': 'binary',
-            'datas': file_data,
-            # 'datas_fname': 'Reporte_Partners.xlsx',
-            'res_model': 'res.partner',
-            'res_id': self.id,
-        })
-
-        # Retornar una acción para descargar el archivo
-        return {
-            'type': 'ir.actions.act_url',
-            'url': f'/web/content/{attachment.id}?download=true',
-            'target': 'new',
-        }
-        
 
 class ResPartner(models.Model):
     _inherit = 'res.partner'
