@@ -3,6 +3,9 @@ from datetime import datetime
 import io
 import base64
 import xlsxwriter
+import logging
+
+_logger = logging.getLogger(__name__)
 
 class ResellerSubscription(models.Model):
     _name = 'reseller.subscription'  # Nombre técnico del modelo
@@ -141,7 +144,8 @@ class ResellerSubscription(models.Model):
         for col_num, header in enumerate(headers):
             worksheet.write(0, col_num, header)
 
-        subscriptions = self.env['reseller.subscription'].search([])
+        subscriptions = self.env['reseller.subscription'].sudo().search([])
+        
         # Escribir datos
         for row_num, subscription in enumerate(subscriptions, start=1):
             worksheet.write(row_num, 0, subscription.related_partner_names) #Cliente # subscription -> reseller_partner

@@ -167,8 +167,6 @@ class ResellerModule(models.Model):
     def sync_contacts(self):
         """Sincroniza contactos con la base de datos de Odoo"""
         try:
-            # self.sync_subscriptions('C00qonywf')
-            # return
             contacts = list(self.fetch_contacts())
             contact = contacts[0]
 
@@ -267,7 +265,6 @@ class ResellerModule(models.Model):
                         _logger.info("Nuevo contacto en tabla reseller_partner creado: %s", reseller)
 
                 self.sync_subscriptions(reseller)
-                # return
                 
                 # Company contact
                 company_vals = {
@@ -297,7 +294,7 @@ class ResellerModule(models.Model):
                     _logger.info("Nuevo contacto de compañia en tabla res_partner creado: %s", reseller)
                     
                 else:
-                    company = self.env['res.partner'].search([('name', '=', org_display_name)], limit=1)
+                    company = self.env['res.partner'].search([('name', '=', org_display_name), ('parent_id', '!=', 'id'), ('is_company', '=', True)], limit=1)
                     
                     if company:
                         company.write(company_data)
@@ -344,7 +341,7 @@ class ResellerModule(models.Model):
                     
                 else:
                     if email: 
-                        personal = self.env['res.partner'].search([('email', '=', email)], limit=1)
+                        personal = self.env['res.partner'].search([('email', '=', email), ('parent_id', '!=', 'id'), ('is_company', '=', False)], limit=1)
                         
                         if personal and email:
                             personal.write(personal_data)
@@ -367,8 +364,7 @@ class ResellerModule(models.Model):
             _logger.error("Error al procesar la respuesta de la API: %s", e)
 
         except Exception as e:
-            _logger.error("Se produjo un error inesperado: %s", e)
-        
+            _logger.error("Se produjo un error inesperado al sincronizar contactos: %s", e)        
 
         _logger.info("Todos los contactos fueron sincronizados")
     
@@ -479,16 +475,8 @@ class ResellerModule(models.Model):
         """Sincroniza contactos con la base de datos de Odoo"""
         try:
             reseller_service = self.create_reseller_service()
-            
-            # if subscriptions:
-            #     for subscription in subscriptions:
-            #         print("Suscripción: ", subscription)
-            # else:
-            #     print(f"No subscriptions found for customer ID: C00qonywf")
-
             subscriptions = []
             try:
-                # response = reseller_service.subscriptions().list(customerId=reseller).execute()
                 response = reseller_service.subscriptions().list(customerId=reseller.cloud_identity_id).execute()
         
                 # Verifica si el cliente tiene suscripciones
@@ -497,20 +485,16 @@ class ResellerModule(models.Model):
             except HttpError as error:
                 if int(error.resp.get('status', 0)) == 403:  # Error de permisos
                     _logger.warning("Error de permisos al obtener suscripciones para cliente %s: %s", reseller.cloud_identity_id, error)
-                    # _logger.warning("Error de permisos al obtener suscripciones para cliente %s: %s", reseller, error)
                 elif int(error.resp.get('status', 0)) == 404:  # Reseller no encontrado
                     _logger.warning("Cliente no encontrado: %s", reseller.cloud_identity_id)
-                    # _logger.warning("Cliente no encontrado: %s", reseller)
                 else:
                     _logger.error("Error inesperado al obtener suscripciones para cliente %s: %s", reseller.cloud_identity_id, error)
-                    # _logger.error("Error inesperado al obtener suscripciones para cliente %s: %s", reseller, error)
             except Exception as e:
                 _logger.error("Error desconocido al obtener suscripciones: %s", e)
             
             # Si no hay suscripciones, return
             if not subscriptions:
                 _logger.info("No se encontraron suscripciones para el cliente %s.", reseller.cloud_identity_id)
-                # _logger.info("No se encontraron suscripciones para el cliente %s.", reseller)
                 return []
 
             for subscription in subscriptions:
@@ -570,35 +554,34 @@ class ResellerModule(models.Model):
                     'renewalType': renewalType,
                 }
                 
-                subscription_data = {k: v for k, v in subscription_vals.items() if v != ''}
-                # print(subscription_data)
-                subscription = self.env['reseller.subscription'].search([('subscriptionId', '=', subscriptionId)], limit=1)
-                
-                # TODO actualizar subscriptionId al momento de actualizar los datos de una suscripción, i.e. después de actualizar y regresar el objeto, actualizar el valor
-                
-                if subscription:
-                    subscription.write(subscription_data)
-                    _logger.info("Contacto en tabla reseller_subscription actualizado: %s", subscription)
-                else:
-                    subscription = self.env['reseller.subscription'].create(subscription_data)
-                    _logger.info("Nuevo contacto en tabla reseller_subscription creado: %s", subscription)
+                subscription_data = {k: v for k, v in subscription_vals.items() if v != ''}                
+                if customerId:
+                    subscription = self.env['reseller.subscription'].search([('subscriptionId', '=', subscriptionId)], limit=1)
                     
-                 # Check if the relationship already exists before adding
-                if subscription.id not in reseller.reseller_subscription_ids.ids:
-                    reseller.reseller_subscription_ids = [(4, subscription.id)]
-                    _logger.info("Relación de persona creada con ID: %s", subscription.id)
-                else:
-                    _logger.info("La relación ya existe para la persona con ID: %s", subscription.id)
+                    # TODO actualizar subscriptionId al momento de actualizar los datos de una suscripción, i.e. después de actualizar y regresar el objeto, actualizar el valor
+                    
+                    if subscription:
+                        subscription.write(subscription_data)
+                        _logger.info("Registro en tabla reseller_subscription actualizado: %s", subscription)
+                    else:
+                        subscription = self.env['reseller.subscription'].create(subscription_data)
+                        _logger.info("Nuevo registro en tabla reseller_subscription creado: %s", subscription)
+                        
+                    # Check if the relationship already exists before adding
+                    if subscription.id not in reseller.reseller_subscription_ids.ids:
+                        reseller.reseller_subscription_ids = [(4, subscription.id)]
+                        _logger.info("Relación de suscripción creada con ID: %s", subscription.id)
+                    else:
+                        _logger.info("La relación ya existe para la suscripción con ID: %s", subscription.id)
                 
 
         except ValueError as e:
             _logger.error("Error al procesar la respuesta de la API: %s", e)
 
         except Exception as e:
-            _logger.error("Se produjo un error inesperado: %s", e)
-        
+            _logger.error("Se produjo un error inesperado al sincronizar suscripciones: %s", e)
 
-        _logger.info("Todos los contactos fueron sincronizados")
+        _logger.info("Todos las suscripciones fueron sincronizadas")
 
 
 class ResPartner(models.Model):
