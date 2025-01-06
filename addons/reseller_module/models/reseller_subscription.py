@@ -1,8 +1,13 @@
+import re
 from odoo import models, fields, api
 from datetime import datetime
 import io
 import base64
 import xlsxwriter
+import logging
+
+
+_logger = logging.getLogger(__name__)
 
 class ResellerSubscription(models.Model):
     _name = 'reseller.subscription'  # Nombre técnico del modelo
@@ -141,12 +146,70 @@ class ResellerSubscription(models.Model):
         for col_num, header in enumerate(headers):
             worksheet.write(0, col_num, header)
 
-        subscriptions = self.env['reseller.subscription'].search([])
+        # subscriptions = self.env['reseller.subscription'].sudo().search([])
+        # subscriptions_count = self.env['reseller.subscription'].sudo().search_count([])
+        # subscriptions_count = self.env['reseller.subscription']..with_context(active_test=False).search_count([])
+        # print(subscriptions)
+
+        all_subscriptions = self.env['reseller.subscription'].sudo().search([])
+        visible_subscriptions = self.env['reseller.subscription'].search([])
+        missing_subscriptions = all_subscriptions - visible_subscriptions
+        _logger.info(f"Missing subscriptions: {missing_subscriptions}")
+        # print(all_subscriptions)
+        # print(visible_subscriptions)
+        sale_orders_with_subscription = self.env['sale.order'].search([('is_subscription', '=', True)])
+        
+
+        combined_data = {
+            'subscriptions': visible_subscriptions,
+            'sale_orders': sale_orders_with_subscription,
+        }
+        # print(combined_data)
+        # return
+
         # Escribir datos
-        for row_num, subscription in enumerate(subscriptions, start=1):
+        for row_num, subscription in enumerate(visible_subscriptions, start=1):
+
+            records={
+                'ordenes': []
+            }
+
+            related_partner_name = subscription.related_partner_names #Nombre del cliente de la suscripción
+            reseller_partner = self.env['reseller.partner'].search([
+                ('org_display_name', '=', related_partner_name)
+            ], limit=1)  #consulta el reseller_partner q coincide con el nombre
+            partner_domain = reseller_partner.domain
+            if partner_domain:
+                # Limpiar "http://" o "https://" del dominio
+                cleaned_domain = re.sub(r'^https?://', '', partner_domain)
+                
+                # Buscar el registro en sale.order donde el campo website coincida
+                sale_orders = self.env['sale.order'].search([
+                    ('partner_id.website', 'ilike', cleaned_domain),  # 'ilike' para coincidencia sin distinción de mayúsculas
+                    ('is_subscription', '=', True),  # Filtro adicional para is_subscription
+                    ('recurring_live', '=', True)  # Filtro adicional para estado en progreso
+                ])
+                records['ordenes'].extend(sale_orders)
+            skuname = subscription.skuName  # SKU que deseas buscar
+            # print(skuname)
+            # Iterar sobre las órdenes almacenadas en record['ordenes']
+            for order in records['ordenes']:
+                
+                # # Iterar sobre las líneas de la orden (order_line es un One2many)
+                for line in order.order_line:
+                    # print(line.name)
+                    if line.name == skuname:
+                        print(skuname)
+                #         # Si se encuentra coincidencia
+                #         _logger.info(f"Found matching SKU in order {order.name}: {line.name}")
+                #         # Aquí puedes realizar alguna acción específica
+
+
+            
+                
             worksheet.write(row_num, 0, subscription.related_partner_names) #Cliente # subscription -> reseller_partner
             worksheet.write(row_num, 1, subscription.related_partner_names) #Nombre Comercial # subscription -> reseller_partner
-            worksheet.write(row_num, 2, "") #Suscripción
+            worksheet.write(row_num, 2, reseller_partner.domain) #Suscripción
             worksheet.write(row_num, 3, "") #School Partne
             worksheet.write(row_num, 4, "") #Contrato
             worksheet.write(row_num, 5, "") #Producto
@@ -173,6 +236,38 @@ class ResellerSubscription(models.Model):
             worksheet.write(row_num, 26, "") #Margen
             worksheet.write(row_num, 27, "") #Partner Advantage DR
 
+        # for sale_order in combined_data['sale_orders']:
+        #     worksheet.write(row_num, 0, sale_order.partner_id.name)  # Cliente
+        #     worksheet.write(row_num, 1, sale_order.partner_id.commercial_partner_id.name)  # Nombre Comercial
+        #     worksheet.write(row_num, 2, sale_order.name)  # Suscripción (nombre de la orden de venta)
+        #     website = sale_order.partner_id.website or ""  # Asegurarte de que no sea None
+        #     cleaned_website = re.sub(r'^https?://', '', website)  # Eliminar "http://" o "https://"
+        #     worksheet.write(row_num, 3, cleaned_website)
+        #     worksheet.write(row_num, 4, sale_order.name)  # Contrato
+        #     worksheet.write(row_num, 5, ", ".join(sale_order.order_line.mapped('product_id.name')))  # Productos
+        #     worksheet.write(row_num, 6, "")  # SKU
+        #     worksheet.write(row_num, 7, sale_order.date_order.strftime("%Y-%m-%d %H:%M:%S"))  # Fecha de creación
+        #     worksheet.write(row_num, 8, sale_order.state)  # Estado de la orden
+        #     worksheet.write(row_num, 9, "")  # Plan de pago
+        #     worksheet.write(row_num, 10, "")  # Día
+        #     worksheet.write(row_num, 11, "")  # Mes
+        #     worksheet.write(row_num, 12, "")  # Año
+        #     worksheet.write(row_num, 13, sale_order.partner_id.country_id.name)  # País
+        #     worksheet.write(row_num, 14, "")  # Licencias asignadas
+        #     worksheet.write(row_num, 15, "")  # Licencias a renovar
+        #     worksheet.write(row_num, 16, "")  # Precio vta x licencia Cliente
+        #     worksheet.write(row_num, 17, "")  # Monto mxn a cobrar Odoo
+        #     worksheet.write(row_num, 18, "")  # Descuento Odoo
+        #     worksheet.write(row_num, 19, "")  # Importe de descuento
+        #     worksheet.write(row_num, 20, sale_order.amount_total)  # Total pagado sin IVA
+        #     worksheet.write(row_num, 21, "")  # Cliente paga
+        #     worksheet.write(row_num, 22, "")  # Costo unitario licencia Consola
+        #     worksheet.write(row_num, 23, "")  # Monto costo Mensual en factura Google
+        #     worksheet.write(row_num, 24, "")  # Monto a pagar a Google
+        #     worksheet.write(row_num, 25, "")  # Ganancia
+        #     worksheet.write(row_num, 26, "")  # Margen
+        #     worksheet.write(row_num, 27, "")  # Partner Advantage DR
+        #     row_num += 1
         # Cerrar el archivo Excel
         workbook.close()
         output.seek(0)
