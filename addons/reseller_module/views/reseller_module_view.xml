@@ -1,57 +1,56 @@
 <odoo>
-    <record id="view_reseller_module_form"  model="ir.ui.view">
+    <record id="view_reseller_module_form_update" model="ir.ui.view">
         <field name="name">reseller.module.form</field>
         <field name="model">reseller.module</field>
         <field name="arch" type="xml">
             <form string="Reseller Module">
                 <sheet>
-                    <group>
-                        <button string="Sincronizar Contactos" type="object" name="sync_contacts" class="btn-primary"/>
-                    </group>
-                    <group>
-                        <field name="contact_total" readonly="1"/>
-                        <field name="contact_synced" readonly="1"/>
-                    </group>
-                </sheet>
-            </form>
-        </field>
-    </record>
-
-    <!-- Vista sincronizar contactos y conteo de contactos -->
-    <record id="view_reseller_module_form_update" model="ir.ui.view">
-        <field name="name">reseller.module.form</field>
-        <field name="model">reseller.module</field>
-        <field name="arch" type="xml">
-            <form string="Reseller module">
-                <sheet>
-                    <div class="row">
-                        <group class="col-4">
-                            <button string="Sincronizar Contactos"
-                                    type="object"
-                                    name="sync_contacts"
-                                    class="btn-primary"/>
-                        </group>
+                    <!-- Sección del botón -->
+                    <div class="oe_button_panel mb16">
+                         <button
+                                type="object"
+                                name="sync_contacts"
+                                class="btn-primary d-flex align-items-center"
+                                style="margin-bottom: 16px;">
+                            <i class="fa fa-refresh" style="font-size: 1.2rem; margin-right: 8px;"></i>
+                            <span style="font-size: 1.1rem;">Sincronizar Contactos</span>
+                        </button>
                     </div>
-                    <!-- Agregar un panel con dos columnas -->
-                    
+
+                    <!-- Sección de datos -->
+                    <div class="oe_panel">
                         <div class="row">
                             <!-- Columna de "Contactos en Odoo" -->
-                            <div class="col-4">
-                                <h1>Contactos en Odoo:</h1>
-                                <p style="font-size: x-large"><field name="contact_total" readonly="1"/></p>
+                            <div class="col-4 oe_card">
+                                <div class="oe_card_header">
+                                    <h3>Contactos en Odoo</h3>
+                                </div>
+                                <div class="oe_card_body">
+                                    <p class="oe_stat"><field name="contact_total" readonly="1"/></p>
+                                </div>
                             </div>
+
                             <!-- Columna de "Contactos sincronizados" -->
-                            <div class="col-4">
-                                <h1>Contactos Sincronizados:</h1>
-                                <field name="contact_synced" readonly="1"/>
+                            <div class="col-4 oe_card">
+                                <div class="oe_card_header">
+                                    <h3>Contactos Sincronizados</h3>
+                                </div>
+                                <div class="oe_card_body">
+                                    <p class="oe_stat"><field name="contact_synced" readonly="1"/></p>
+                                </div>
                             </div>
+
                             <!-- Columna de "Contactos en consola Reseller" -->
-                            <div class="col-4">
-                                <h1>Contactos en consola Reseller:</h1>
-                                <p style="font-size: x-large">38</p>
-                            </div>
+                            <!-- <div class="col-4 oe_card">
+                                <div class="oe_card_header">
+                                    <h3>Contactos en consola Reseller</h3>
+                                </div>
+                                <div class="oe_card_body">
+                                    <p class="oe_stat">38</p>
+                                </div>
+                            </div> -->
                         </div>
-                    
+                    </div>
                 </sheet>
             </form>
         </field>

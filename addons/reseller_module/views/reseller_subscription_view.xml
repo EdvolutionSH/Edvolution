@@ -5,7 +5,7 @@
         <field name="model">reseller.subscription</field>
         <field name="arch" type="xml">
             <tree string="Suscripciones">
-                <field name="skuName" string="Nombre SKU"/>
+                <field name="skuName" string="Nombre"/>
                 <field name="subscriptionId" string="ID de Suscripción"/>
                 <field name="status" string="Estado"/>
                 <field name="planName" string="Plan"/>
@@ -25,13 +25,15 @@
         <field name="arch" type="xml">
             <form string="Reseller module">
                 <sheet>
-                    <div class="row">
-                        <group class="col-4">
-                            <button string="Generar reporte"
-                                    type="object"
-                                    name="generate_report"
-                                    class="btn-primary"/>
-                        </group>
+                    <div class="oe_button_panel mb16">
+                        <button string="Generar reporte"
+                                type="object"
+                                name="generate_report"
+                                class="btn-primary d-flex align-items-center"
+                                style="margin-bottom: 16px;">
+                            <i class="fa fa-file-excel-o" style="font-size: 1.2rem; margin-right: 8px;"></i> <!-- Ajusta el espacio con margin-right -->
+                            <span style="font-size: 1.1rem;">Generar reporte</span>
+                        </button>
                     </div>                    
                 </sheet>
             </form>

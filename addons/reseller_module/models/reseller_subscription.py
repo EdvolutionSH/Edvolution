@@ -103,6 +103,14 @@ class ResellerSubscription(models.Model):
                 record.related_partner_names = ", ".join(record.reseller_ids.mapped('org_display_name'))
             else:
                 record.related_partner_names = "Sin socios relacionados"
+
+    def name_get(self):
+        result = []
+        for record in self:
+            # Name and sku
+            display_name = f"{record.related_partner_names} - {record.skuName}"
+            result.append((record.id, display_name))
+        return result
                 
     def generate_report(self):
         # Crear un buffer en memoria
@@ -236,38 +244,38 @@ class ResellerSubscription(models.Model):
             worksheet.write(row_num, 26, "") #Margen
             worksheet.write(row_num, 27, "") #Partner Advantage DR
 
-        # for sale_order in combined_data['sale_orders']:
-        #     worksheet.write(row_num, 0, sale_order.partner_id.name)  # Cliente
-        #     worksheet.write(row_num, 1, sale_order.partner_id.commercial_partner_id.name)  # Nombre Comercial
-        #     worksheet.write(row_num, 2, sale_order.name)  # Suscripción (nombre de la orden de venta)
-        #     website = sale_order.partner_id.website or ""  # Asegurarte de que no sea None
-        #     cleaned_website = re.sub(r'^https?://', '', website)  # Eliminar "http://" o "https://"
-        #     worksheet.write(row_num, 3, cleaned_website)
-        #     worksheet.write(row_num, 4, sale_order.name)  # Contrato
-        #     worksheet.write(row_num, 5, ", ".join(sale_order.order_line.mapped('product_id.name')))  # Productos
-        #     worksheet.write(row_num, 6, "")  # SKU
-        #     worksheet.write(row_num, 7, sale_order.date_order.strftime("%Y-%m-%d %H:%M:%S"))  # Fecha de creación
-        #     worksheet.write(row_num, 8, sale_order.state)  # Estado de la orden
-        #     worksheet.write(row_num, 9, "")  # Plan de pago
-        #     worksheet.write(row_num, 10, "")  # Día
-        #     worksheet.write(row_num, 11, "")  # Mes
-        #     worksheet.write(row_num, 12, "")  # Año
-        #     worksheet.write(row_num, 13, sale_order.partner_id.country_id.name)  # País
-        #     worksheet.write(row_num, 14, "")  # Licencias asignadas
-        #     worksheet.write(row_num, 15, "")  # Licencias a renovar
-        #     worksheet.write(row_num, 16, "")  # Precio vta x licencia Cliente
-        #     worksheet.write(row_num, 17, "")  # Monto mxn a cobrar Odoo
-        #     worksheet.write(row_num, 18, "")  # Descuento Odoo
-        #     worksheet.write(row_num, 19, "")  # Importe de descuento
-        #     worksheet.write(row_num, 20, sale_order.amount_total)  # Total pagado sin IVA
-        #     worksheet.write(row_num, 21, "")  # Cliente paga
-        #     worksheet.write(row_num, 22, "")  # Costo unitario licencia Consola
-        #     worksheet.write(row_num, 23, "")  # Monto costo Mensual en factura Google
-        #     worksheet.write(row_num, 24, "")  # Monto a pagar a Google
-        #     worksheet.write(row_num, 25, "")  # Ganancia
-        #     worksheet.write(row_num, 26, "")  # Margen
-        #     worksheet.write(row_num, 27, "")  # Partner Advantage DR
-        #     row_num += 1
+        for sale_order in combined_data['sale_orders']:
+            worksheet.write(row_num, 0, sale_order.partner_id.name)  # Cliente
+            worksheet.write(row_num, 1, sale_order.partner_id.commercial_partner_id.name)  # Nombre Comercial
+            worksheet.write(row_num, 2, sale_order.name)  # Suscripción (nombre de la orden de venta)
+            website = sale_order.partner_id.website or ""  # Asegurarte de que no sea None
+            cleaned_website = re.sub(r'^https?://', '', website)  # Eliminar "http://" o "https://"
+            worksheet.write(row_num, 3, cleaned_website)
+            worksheet.write(row_num, 4, sale_order.name)  # Contrato
+            worksheet.write(row_num, 5, ", ".join(sale_order.order_line.mapped('product_id.name')))  # Productos
+            worksheet.write(row_num, 6, "")  # SKU
+            worksheet.write(row_num, 7, sale_order.date_order.strftime("%Y-%m-%d %H:%M:%S"))  # Fecha de creación
+            worksheet.write(row_num, 8, sale_order.state)  # Estado de la orden
+            worksheet.write(row_num, 9, "")  # Plan de pago
+            worksheet.write(row_num, 10, "")  # Día
+            worksheet.write(row_num, 11, "")  # Mes
+            worksheet.write(row_num, 12, "")  # Año
+            worksheet.write(row_num, 13, sale_order.partner_id.country_id.name)  # País
+            worksheet.write(row_num, 14, "")  # Licencias asignadas
+            worksheet.write(row_num, 15, "")  # Licencias a renovar
+            worksheet.write(row_num, 16, "")  # Precio vta x licencia Cliente
+            worksheet.write(row_num, 17, "")  # Monto mxn a cobrar Odoo
+            worksheet.write(row_num, 18, "")  # Descuento Odoo
+            worksheet.write(row_num, 19, "")  # Importe de descuento
+            worksheet.write(row_num, 20, sale_order.amount_total)  # Total pagado sin IVA
+            worksheet.write(row_num, 21, "")  # Cliente paga
+            worksheet.write(row_num, 22, "")  # Costo unitario licencia Consola
+            worksheet.write(row_num, 23, "")  # Monto costo Mensual en factura Google
+            worksheet.write(row_num, 24, "")  # Monto a pagar a Google
+            worksheet.write(row_num, 25, "")  # Ganancia
+            worksheet.write(row_num, 26, "")  # Margen
+            worksheet.write(row_num, 27, "")  # Partner Advantage DR
+            row_num += 1
         # Cerrar el archivo Excel
         workbook.close()
         output.seek(0)

@@ -1,10 +1,13 @@
 <odoo>
     <!-- Vista Form para reseller.subscription (Detalles de la suscripción) -->
     <record id="view_reseller_subscription_details_form" model="ir.ui.view">
-        <field name="name">reseller.subscription.details.form</field>
+         <field name="name">reseller.subscription.details.form</field>
         <field name="model">reseller.subscription</field>
         <field name="arch" type="xml">
             <form string="Detalle de Suscripción">
+                <header>
+                    <field name="status" widget="statusbar" statusbar_visible="ACTIVE,SUSPENDED"/>
+                </header>
                 <sheet>
                     <group>
                         <field name="related_partner_names" string="Cliente" readonly="1"/>
