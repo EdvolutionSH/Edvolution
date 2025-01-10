@@ -104,6 +104,14 @@ class ResellerSubscription(models.Model):
                 record.related_partner_names = ", ".join(record.reseller_ids.mapped('org_display_name'))
             else:
                 record.related_partner_names = "Sin socios relacionados"
+
+    def name_get(self):
+        result = []
+        for record in self:
+            # Name and sku
+            display_name = f"{record.related_partner_names} - {record.skuName}"
+            result.append((record.id, display_name))
+        return result
                 
     def generate_report(self):
         # Crear un buffer en memoria
