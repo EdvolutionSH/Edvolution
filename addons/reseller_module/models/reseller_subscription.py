@@ -5,6 +5,7 @@ import io
 import base64
 import xlsxwriter
 import logging
+import datetime
 
 
 _logger = logging.getLogger(__name__)
@@ -114,34 +115,38 @@ class ResellerSubscription(models.Model):
 
         # Headers
         headers = [
+            'País',
+            'Unidad',
             'Cliente', # subscription -> reseller_partner
             'Nombre Comercial', # subscription -> reseller_partner
             'Suscripción',
-            'School Partne',
-            'Contrato',
-            'Producto',
-            'SKU', # subscription.skuName
-            'Fecha de creación (PST)', # 
-            'Estado de suscripción', # subscription.status
-            'Plan de pago', #subscription.planName
-            'Dia', # subscription
+            'Envió de correo',
+            'Fecha SKU anterior',
+            'SKU anterior',
+            'School Partner',
+            'SKU actual',
+            'Plan de pagos',
+            'Estado de la suscripción',
+            'Día',
             'Mes',
             'Año',
-            'Pais',
-            'Licencias asignadas', # subscription.licensedNumberOfSeats
+            'Licencias asignadas',
             'Licencias a renovar',
-            'Precio vta x licencia Cliente',
-            'Monto mxn a cobrar Odoo',
-            'Descuento Odoo',
-            'Importe de descuento',
-            'Total pagado sin iva',
+            'Precio unitario oficial google para el cliente',
+            'Descuento google para el cliente',
+            'Precio unitario al publico con descuento',
+            'Monto mxn a cobrar Odoo sin iva',
             'Cliente paga',
-            'Costo unitario licencia Consola',
-            'Monto costo Mensual en factura Google',
-            'Monto a pagar a Google',
+            'Costo unitario licencia consola anual',
+            'Costo unitario licencia consola mensual',
+            'Monto a pagar a google',
             'Ganancia',
             'Margen',
-            'Partner Advantage DR' #28
+            'Factura',
+            'Pago de la factura',
+            'Comentarios (Upsell, cambio de SKU)',
+            'Partner Advantage DR',
+            'Como se paga a google'
         ]
         for col_num, header in enumerate(headers):
             worksheet.write(0, col_num, header)
@@ -151,27 +156,28 @@ class ResellerSubscription(models.Model):
         # subscriptions_count = self.env['reseller.subscription']..with_context(active_test=False).search_count([])
         # print(subscriptions)
 
-        all_subscriptions = self.env['reseller.subscription'].sudo().search([])
-        visible_subscriptions = self.env['reseller.subscription'].search([])
+        all_subscriptions = self.env['reseller.subscription'].sudo().search([('status','=', 'ACTIVE')])
+        visible_subscriptions = self.env['reseller.subscription'].search([('status','=', 'ACTIVE')])
         missing_subscriptions = all_subscriptions - visible_subscriptions
         _logger.info(f"Missing subscriptions: {missing_subscriptions}")
         # print(all_subscriptions)
         # print(visible_subscriptions)
-        sale_orders_with_subscription = self.env['sale.order'].search([('is_subscription', '=', True)])
         
-
-        combined_data = {
-            'subscriptions': visible_subscriptions,
-            'sale_orders': sale_orders_with_subscription,
-        }
         # print(combined_data)
         # return
 
         # Escribir datos
         for row_num, subscription in enumerate(visible_subscriptions, start=1):
 
-            records={
-                'ordenes': []
+            odooData={
+                'name': [],
+                'plan': [],
+                'partner': [],
+                'googleDiscount': [],
+                'price' : [],
+                'payment': [],
+                'invoice' : [],
+                'invoicePay' : []
             }
 
             related_partner_name = subscription.related_partner_names #Nombre del cliente de la suscripción
@@ -181,93 +187,88 @@ class ResellerSubscription(models.Model):
             partner_domain = reseller_partner.domain
             if partner_domain:
                 # Limpiar "http://" o "https://" del dominio
-                cleaned_domain = re.sub(r'^https?://', '', partner_domain)
+                cleaned_domain = re.sub(r'^(https?://)?(www\.)?', '', partner_domain)
+                cleaned_domain = cleaned_domain.rstrip('/')
                 
                 # Buscar el registro en sale.order donde el campo website coincida
                 sale_orders = self.env['sale.order'].search([
                     ('partner_id.website', 'ilike', cleaned_domain),  # 'ilike' para coincidencia sin distinción de mayúsculas
                     ('is_subscription', '=', True),  # Filtro adicional para is_subscription
-                    ('recurring_live', '=', True)  # Filtro adicional para estado en progreso
-                ])
-                records['ordenes'].extend(sale_orders)
-            skuname = subscription.skuName  # SKU que deseas buscar
-            # print(skuname)
-            # Iterar sobre las órdenes almacenadas en record['ordenes']
-            for order in records['ordenes']:
+                    ('recurring_live', '=', True),  # Filtro adicional para estado en progreso
+                    ('order_line.product_id.x_studio_sku', '=', subscription.skuName),  # Filtro adicional para SKU
+                    ('order_line.product_uom_qty', '=', subscription.numberOfSeats)  # Filtro adicional para SKU
+                ], limit=1)
                 
-                # # Iterar sobre las líneas de la orden (order_line es un One2many)
-                for line in order.order_line:
-                    # print(line.name)
-                    if line.name == skuname:
-                        print(skuname)
-                #         # Si se encuentra coincidencia
-                #         _logger.info(f"Found matching SKU in order {order.name}: {line.name}")
-                #         # Aquí puedes realizar alguna acción específica
 
+            #data calculada o procesada
+            if subscription.endTime:
+                endTime = int(subscription.endTime) / 1000
+                date = datetime.datetime.fromtimestamp(endTime)
+                day_of_ending = date.day
+                month_of_ending = date.month
+                year_of_ending = date.year
+            else:
+                day_of_ending = ""
+                month_of_ending = ""
+                year_of_ending = ""
+            plan_name_mapping = {
+                "FREE": "Gratis",
+                "ANNUAL": "Anual",
+                "ANNUAL_YEARLY_PAY": "Pago anual",
+                "FLEXIBLE": "Flexible",
+                "TRIAL" : "Prueba"
+            }
+            status_name_mapping = {
+                "ACTIVE": "Activo",
+                "SUSPENDED": "Suspendido",
+            }
+            translated_plan_name = plan_name_mapping.get(subscription.planName, "Desconocido")  # Usa "Desconocido" si el valor no está en el diccionario
+            translated_status_name = status_name_mapping.get(subscription.status, "Desconocido")  # Usa "Desconocido" si el valor no está en el diccionario
+            invoice= self.env['account.move'].search([
+                ('invoice_origin', 'like',sale_orders.name),
+            ])
+
+            partner = self.env['reseller.partner'].search(
+                [('cloud_identity_id', 'like', subscription.customerId)],
+                limit=1
+            )
 
             
-                
-            worksheet.write(row_num, 0, subscription.related_partner_names) #Cliente # subscription -> reseller_partner
-            worksheet.write(row_num, 1, subscription.related_partner_names) #Nombre Comercial # subscription -> reseller_partner
-            worksheet.write(row_num, 2, reseller_partner.domain) #Suscripción
-            worksheet.write(row_num, 3, "") #School Partne
-            worksheet.write(row_num, 4, "") #Contrato
-            worksheet.write(row_num, 5, "") #Producto
-            worksheet.write(row_num, 6, subscription.skuName) #SKU # subscription.skuName
-            worksheet.write(row_num, 7, subscription.formattedCreationTime) #Fecha de creación (PST) # 
-            worksheet.write(row_num, 8, subscription.status) #Estado de suscripción # subscription.status
-            worksheet.write(row_num, 9, subscription.planName) #Plan de pago #subscription.planName
-            worksheet.write(row_num, 10, "") #Dia # subscription
-            worksheet.write(row_num, 11, "")  #Mes
-            worksheet.write(row_num, 12, "") #Año
-            worksheet.write(row_num, 13, "") #Pais
-            worksheet.write(row_num, 14, subscription.licensedNumberOfSeats) #Licencias asignadas # subscription.licensedNumberOfSeats
-            worksheet.write(row_num, 15, "") #Licencias a renovar
-            worksheet.write(row_num, 16, "") #Precio vta x licencia Cliente
-            worksheet.write(row_num, 17, "") #Monto mxn a cobrar Odoo
-            worksheet.write(row_num, 18, "")  #Descuento Odoo
-            worksheet.write(row_num, 19, "") #Importe de descuento
-            worksheet.write(row_num, 20, "") #Total pagado sin iva
-            worksheet.write(row_num, 21, "") #Cliente paga
-            worksheet.write(row_num, 22, "") #Costo unitario licencia Consola
-            worksheet.write(row_num, 23, "") #Monto costo Mensual en factura Google
+            worksheet.write(row_num, 0, partner.region_code) #País #ToDo obtener de consola o de odoo?
+            worksheet.write(row_num, 1, "") #Unidad moneda #ToDo
+            worksheet.write(row_num, 2, cleaned_domain) #Cliente dominio
+            worksheet.write(row_num, 3, sale_orders.partner_id.name or "") #Nombre Comercial 
+            worksheet.write(row_num, 4, sale_orders.order_line.name or "") #Suscripción en odoo
+            worksheet.write(row_num, 5, "") #Envio de correo electronico #ToDo
+            worksheet.write(row_num, 6, "") #Fecha sku anterior #ToDo
+            worksheet.write(row_num, 7, "") #sku anterior
+            worksheet.write(row_num, 8, sale_orders.user_id.partner_id.name or "") #school partner
+            worksheet.write(row_num, 9, subscription.skuName) #sku actual
+            worksheet.write(row_num, 10, translated_plan_name) #plan de pagos
+            worksheet.write(row_num, 11, translated_status_name)  #estado de la suscripcion
+            worksheet.write(row_num, 12, day_of_ending) #dia
+            worksheet.write(row_num, 13, month_of_ending) #mes
+            worksheet.write(row_num, 14, year_of_ending) #año
+            worksheet.write(row_num, 15, subscription.licensedNumberOfSeats) #licencias asignadas
+            worksheet.write(row_num, 16, subscription.numberOfSeats) #licencias a renovar
+            worksheet.write(row_num, 17, sale_orders.order_line.price_unit or "") #precio unitario oficial google para el cliente 
+            worksheet.write(row_num, 18, sale_orders.order_line.discount or "")  #descuento google para el cliente
+            worksheet.write(row_num, 19, sale_orders.order_line.price_reduce or "") #precio unitario al publico con descuento
+            worksheet.write(row_num, 20, sale_orders.order_line.price_subtotal or "") #monto mxn a cobrar odoo sin iva
+            worksheet.write(row_num, 21, sale_orders.recurrence_id.name or "") #Cliente paga
+            worksheet.write(row_num, 22, "") #costo unitario licencia consola anual
+            worksheet.write(row_num, 23, "") #costo unitario licencia consola mensual
             worksheet.write(row_num, 24, "") #Monto a pagar a Google
-            worksheet.write(row_num, 25, "")  #Ganancia
+            worksheet.write(row_num, 25, "") #Ganancia
             worksheet.write(row_num, 26, "") #Margen
-            worksheet.write(row_num, 27, "") #Partner Advantage DR
+            worksheet.write(row_num, 27, invoice.name or "") #factura
+            worksheet.write(row_num, 28, "") #pago de la factura
+            worksheet.write(row_num, 29, "") #Comentario upsell
+            worksheet.write(row_num, 30, "") #Partner Advantage DR
+            worksheet.write(row_num, 31, "") #como se paga a google
+            
 
-        # for sale_order in combined_data['sale_orders']:
-        #     worksheet.write(row_num, 0, sale_order.partner_id.name)  # Cliente
-        #     worksheet.write(row_num, 1, sale_order.partner_id.commercial_partner_id.name)  # Nombre Comercial
-        #     worksheet.write(row_num, 2, sale_order.name)  # Suscripción (nombre de la orden de venta)
-        #     website = sale_order.partner_id.website or ""  # Asegurarte de que no sea None
-        #     cleaned_website = re.sub(r'^https?://', '', website)  # Eliminar "http://" o "https://"
-        #     worksheet.write(row_num, 3, cleaned_website)
-        #     worksheet.write(row_num, 4, sale_order.name)  # Contrato
-        #     worksheet.write(row_num, 5, ", ".join(sale_order.order_line.mapped('product_id.name')))  # Productos
-        #     worksheet.write(row_num, 6, "")  # SKU
-        #     worksheet.write(row_num, 7, sale_order.date_order.strftime("%Y-%m-%d %H:%M:%S"))  # Fecha de creación
-        #     worksheet.write(row_num, 8, sale_order.state)  # Estado de la orden
-        #     worksheet.write(row_num, 9, "")  # Plan de pago
-        #     worksheet.write(row_num, 10, "")  # Día
-        #     worksheet.write(row_num, 11, "")  # Mes
-        #     worksheet.write(row_num, 12, "")  # Año
-        #     worksheet.write(row_num, 13, sale_order.partner_id.country_id.name)  # País
-        #     worksheet.write(row_num, 14, "")  # Licencias asignadas
-        #     worksheet.write(row_num, 15, "")  # Licencias a renovar
-        #     worksheet.write(row_num, 16, "")  # Precio vta x licencia Cliente
-        #     worksheet.write(row_num, 17, "")  # Monto mxn a cobrar Odoo
-        #     worksheet.write(row_num, 18, "")  # Descuento Odoo
-        #     worksheet.write(row_num, 19, "")  # Importe de descuento
-        #     worksheet.write(row_num, 20, sale_order.amount_total)  # Total pagado sin IVA
-        #     worksheet.write(row_num, 21, "")  # Cliente paga
-        #     worksheet.write(row_num, 22, "")  # Costo unitario licencia Consola
-        #     worksheet.write(row_num, 23, "")  # Monto costo Mensual en factura Google
-        #     worksheet.write(row_num, 24, "")  # Monto a pagar a Google
-        #     worksheet.write(row_num, 25, "")  # Ganancia
-        #     worksheet.write(row_num, 26, "")  # Margen
-        #     worksheet.write(row_num, 27, "")  # Partner Advantage DR
-        #     row_num += 1
+        
         # Cerrar el archivo Excel
         workbook.close()
         output.seek(0)
