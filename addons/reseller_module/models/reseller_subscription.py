@@ -1,6 +1,6 @@
 import re
 from odoo import models, fields, api
-from datetime import datetime
+import datetime
 import io
 import base64
 import xlsxwriter
@@ -56,7 +56,7 @@ class ResellerSubscription(models.Model):
             if record.startTime:
                 try:
                     # Convertir milisegundos a fecha
-                    date_obj = datetime.fromtimestamp(int(record.startTime) / 1000)
+                    date_obj = datetime.datetime.fromtimestamp(int(record.startTime) / 1000)
                     record.formattedStartTime = date_obj.strftime('%d/%m/%Y')
                 except (ValueError, TypeError):
                     record.formattedStartTime = 'Fecha no válida'
@@ -70,7 +70,7 @@ class ResellerSubscription(models.Model):
             if record.endTime:
                 try:
                     # Convertir milisegundos a fecha
-                    date_obj = datetime.fromtimestamp(int(record.endTime) / 1000)
+                    date_obj = datetime.datetime.fromtimestamp(int(record.endTime) / 1000)
                     record.formattedEndTime = date_obj.strftime('%d/%m/%Y')
                 except (ValueError, TypeError):
                     record.formattedEndTime = 'Fecha no válida'
@@ -84,7 +84,7 @@ class ResellerSubscription(models.Model):
             if record.creationTime:
                 try:
                     # Convertir milisegundos a fecha
-                    date_obj = datetime.fromtimestamp(int(record.creationTime) / 1000)
+                    date_obj = datetime.datetime.fromtimestamp(int(record.creationTime) / 1000)
                     record.formattedCreationTime = date_obj.strftime('%d/%m/%Y')
                 except (ValueError, TypeError):
                     record.formattedCreationTime = 'Fecha no válida'
@@ -159,20 +159,7 @@ class ResellerSubscription(models.Model):
         for col_num, header in enumerate(headers):
             worksheet.write(0, col_num, header)
 
-        # subscriptions = self.env['reseller.subscription'].sudo().search([])
-        # subscriptions_count = self.env['reseller.subscription'].sudo().search_count([])
-        # subscriptions_count = self.env['reseller.subscription']..with_context(active_test=False).search_count([])
-        # print(subscriptions)
-
-        all_subscriptions = self.env['reseller.subscription'].sudo().search([('status','=', 'ACTIVE')])
         visible_subscriptions = self.env['reseller.subscription'].search([('status','=', 'ACTIVE')])
-        missing_subscriptions = all_subscriptions - visible_subscriptions
-        _logger.info(f"Missing subscriptions: {missing_subscriptions}")
-        # print(all_subscriptions)
-        # print(visible_subscriptions)
-        
-        # print(combined_data)
-        # return
 
         # Escribir datos
         for row_num, subscription in enumerate(visible_subscriptions, start=1):
@@ -198,16 +185,15 @@ class ResellerSubscription(models.Model):
                 cleaned_domain = re.sub(r'^(https?://)?(www\.)?', '', partner_domain)
                 cleaned_domain = cleaned_domain.rstrip('/')
                 
-                # Buscar el registro en sale.order donde el campo website coincida
+                # Buscar el registro en sale.order donde el campo website coincida                
                 sale_orders = self.env['sale.order'].search([
                     ('partner_id.website', 'ilike', cleaned_domain),  # 'ilike' para coincidencia sin distinción de mayúsculas
                     ('is_subscription', '=', True),  # Filtro adicional para is_subscription
                     ('recurring_live', '=', True),  # Filtro adicional para estado en progreso
-                    ('order_line.product_id.x_studio_sku', '=', subscription.skuName),  # Filtro adicional para SKU
+                    ('order_line.product_id.product_tmpl_id.x_studio_sku', '=', subscription.skuName),  # Filtro adicional para SKU
                     ('order_line.product_uom_qty', '=', subscription.numberOfSeats)  # Filtro adicional para SKU
                 ], limit=1)
-                
-
+ 
             #data calculada o procesada
             if subscription.endTime:
                 endTime = int(subscription.endTime) / 1000
@@ -233,20 +219,33 @@ class ResellerSubscription(models.Model):
             translated_plan_name = plan_name_mapping.get(subscription.planName, "Desconocido")  # Usa "Desconocido" si el valor no está en el diccionario
             translated_status_name = status_name_mapping.get(subscription.status, "Desconocido")  # Usa "Desconocido" si el valor no está en el diccionario
             invoice= self.env['account.move'].search([
-                ('invoice_origin', 'like',sale_orders.name),
-            ])
+                ('invoice_origin', 'like',sale_orders.name)],
+                limit=1
+            )
 
             partner = self.env['reseller.partner'].search(
                 [('cloud_identity_id', 'like', subscription.customerId)],
                 limit=1
             )
 
-            
+            # Inicializamos el valor que vamos a buscar
+            matching_order_line = None
+
+            # Iteramos sobre las líneas de pedido
+            for order_line in sale_orders.order_line:
+                # Obtenemos el producto relacionado a esta línea de pedido
+                product_template = order_line.product_id.product_tmpl_id
+
+                # Comprobamos si el SKU coincide con el de la suscripción
+                if product_template.x_studio_sku == subscription.skuName:
+                    matching_order_line = order_line
+                    break  # Salimos del bucle al encontrar el primer match
+
             worksheet.write(row_num, 0, partner.region_code) #País #ToDo obtener de consola o de odoo?
             worksheet.write(row_num, 1, "") #Unidad moneda #ToDo
             worksheet.write(row_num, 2, cleaned_domain) #Cliente dominio
             worksheet.write(row_num, 3, sale_orders.partner_id.name or "") #Nombre Comercial 
-            worksheet.write(row_num, 4, sale_orders.order_line.name or "") #Suscripción en odoo
+            worksheet.write(row_num, 4, matching_order_line.name if matching_order_line else "") #Suscripción en odoo
             worksheet.write(row_num, 5, "") #Envio de correo electronico #ToDo
             worksheet.write(row_num, 6, "") #Fecha sku anterior #ToDo
             worksheet.write(row_num, 7, "") #sku anterior
@@ -259,10 +258,10 @@ class ResellerSubscription(models.Model):
             worksheet.write(row_num, 14, year_of_ending) #año
             worksheet.write(row_num, 15, subscription.licensedNumberOfSeats) #licencias asignadas
             worksheet.write(row_num, 16, subscription.numberOfSeats) #licencias a renovar
-            worksheet.write(row_num, 17, sale_orders.order_line.price_unit or "") #precio unitario oficial google para el cliente 
-            worksheet.write(row_num, 18, sale_orders.order_line.discount or "")  #descuento google para el cliente
-            worksheet.write(row_num, 19, sale_orders.order_line.price_reduce or "") #precio unitario al publico con descuento
-            worksheet.write(row_num, 20, sale_orders.order_line.price_subtotal or "") #monto mxn a cobrar odoo sin iva
+            worksheet.write(row_num, 17, matching_order_line.price_unit if matching_order_line else "") #precio unitario oficial google para el cliente 
+            worksheet.write(row_num, 18, matching_order_line.discount if matching_order_line else "")  #descuento google para el cliente
+            worksheet.write(row_num, 19, matching_order_line.price_reduce if matching_order_line else "") #precio unitario al publico con descuento
+            worksheet.write(row_num, 20, matching_order_line.price_subtotal if matching_order_line else "") #monto mxn a cobrar odoo sin iva
             worksheet.write(row_num, 21, sale_orders.recurrence_id.name or "") #Cliente paga
             worksheet.write(row_num, 22, "") #costo unitario licencia consola anual
             worksheet.write(row_num, 23, "") #costo unitario licencia consola mensual
@@ -275,8 +274,6 @@ class ResellerSubscription(models.Model):
             worksheet.write(row_num, 30, "") #Partner Advantage DR
             worksheet.write(row_num, 31, "") #como se paga a google
             
-
-        
         # Cerrar el archivo Excel
         workbook.close()
         output.seek(0)
