@@ -218,10 +218,13 @@ class ResellerSubscription(models.Model):
             }
             translated_plan_name = plan_name_mapping.get(subscription.planName, "Desconocido")  # Usa "Desconocido" si el valor no está en el diccionario
             translated_status_name = status_name_mapping.get(subscription.status, "Desconocido")  # Usa "Desconocido" si el valor no está en el diccionario
-            invoice= self.env['account.move'].search([
-                ('invoice_origin', 'like',sale_orders.name)],
-                limit=1
-            )
+            
+            invoice = None
+            if sale_orders.name:
+                invoice = self.env['account.move'].search([
+                    ('invoice_origin', 'like',sale_orders.name)],
+                    limit=1
+                )
 
             partner = self.env['reseller.partner'].search(
                 [('cloud_identity_id', 'like', subscription.customerId)],
@@ -268,7 +271,7 @@ class ResellerSubscription(models.Model):
             worksheet.write(row_num, 24, "") #Monto a pagar a Google
             worksheet.write(row_num, 25, "") #Ganancia
             worksheet.write(row_num, 26, "") #Margen
-            worksheet.write(row_num, 27, invoice.name or "") #factura
+            worksheet.write(row_num, 27, invoice.name if invoice else "") #factura
             worksheet.write(row_num, 28, "") #pago de la factura
             worksheet.write(row_num, 29, "") #Comentario upsell
             worksheet.write(row_num, 30, "") #Partner Advantage DR
