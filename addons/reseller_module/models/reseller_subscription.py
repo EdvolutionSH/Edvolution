@@ -1,11 +1,12 @@
 import re
 from odoo import models, fields, api
+from datetime import datetime, timedelta
 import datetime
 import io
 import base64
 import xlsxwriter
 import logging
-import datetime
+
 
 
 _logger = logging.getLogger(__name__)
@@ -154,7 +155,8 @@ class ResellerSubscription(models.Model):
             'Pago de la factura',
             'Comentarios (Upsell, cambio de SKU)',
             'Partner Advantage DR',
-            'Como se paga a google'
+            'Como se paga a google',
+            'Suscripción consola'
         ]
         for col_num, header in enumerate(headers):
             worksheet.write(0, col_num, header)
@@ -191,8 +193,9 @@ class ResellerSubscription(models.Model):
                 # Buscar las órdenes de venta de contactos con el dominio especificado
                 sale_orders = self.env['sale.order'].search([
                     ('partner_id.website', 'ilike', f"%{cleaned_domain}"),  # Filtro por dominio del cliente
+                    ('state', "=", "sale")
                 ])      
-                result['partner_name'] = sale_orders.partner_id.name
+                
                 # Si no se encuentran órdenes de venta, terminar
                 if sale_orders:
                     matching_sale_orders = sale_orders.filtered(
@@ -201,15 +204,33 @@ class ResellerSubscription(models.Model):
                             for line in order.order_line
                         )
                     )
+                    
                     if matching_sale_orders:
                         # Si se encuentran órdenes de venta, buscar la primera que coincida con sku
                         latest_sale_order = matching_sale_orders.sorted(key=lambda inv: inv.write_date or inv.create_date, reverse=True)[0]
+                        result['partner_name'] = latest_sale_order.partner_id.name
                         SOproduct = self.env['sale.order.line'].search([
                             ('order_id', '=', latest_sale_order.id),  # Relacionar facturas con las órdenes de venta
                             ('product_id.product_tmpl_id.x_studio_sku', '=', subscription.skuName)
                         ],limit=1)
                         result['invoice_subscription'] = SOproduct.name
                         result['school_partner'] = latest_sale_order.user_id.partner_id.name
+                        latest_sale_orders = matching_sale_orders.sorted(key=lambda inv: inv.write_date or inv.create_date, reverse=True)
+                        if len(latest_sale_orders) > 1:  # Verificar que haya al menos dos elementos
+                            
+                            penultimate_sale_order = latest_sale_orders[-2]
+                            last_order_product = self.env['sale.order.line'].search([
+                                ('order_id', '=', penultimate_sale_order.id),  # Relacionar facturas con las órdenes de venta
+                                ('product_id.product_tmpl_id.x_studio_sku', '=', subscription.skuName)
+                            ],limit=1)
+                            
+                            result['last_sku'] = last_order_product.name
+                            date_obj = last_order_product.write_date
+                            result['last_sku_date'] = date_obj.strftime('%d/%m/%Y')
+                            
+                        else:
+                            result['last_sku'] = ""
+                            result['last_sku_date'] = ""
                     # Buscar las facturas relacionadas con las órdenes de venta
                     invoices = self.env['account.move'].search([
                         ('invoice_origin', 'in', sale_orders.mapped('name')),  # Relacionar facturas con las órdenes de venta
@@ -307,8 +328,8 @@ class ResellerSubscription(models.Model):
             worksheet.write(row_num, 3, result.get('partner_name', '') or "")  # Nombre Comercial
             worksheet.write(row_num, 4, result.get('invoice_subscription', '') if result else "")  # Suscripción en odoo
             worksheet.write(row_num, 5, "") #Envio de correo electronico #ToDo
-            worksheet.write(row_num, 6, "") #Fecha sku anterior #ToDo
-            worksheet.write(row_num, 7, "") #sku anterior
+            worksheet.write(row_num, 6, result.get('last_sku_date', '') if result else "") #Fecha sku anterior 
+            worksheet.write(row_num, 7, result.get('last_sku', '') if result else "") #sku anterior
             worksheet.write(row_num, 8, result.get('school_partner', '') if result else "")  # school partner
             worksheet.write(row_num, 9, subscription.skuName) #sku actual
             worksheet.write(row_num, 10, plan_name_mapping.get(subscription.planName, "Desconocido")) #plan de pagos
@@ -333,7 +354,7 @@ class ResellerSubscription(models.Model):
             worksheet.write(row_num, 29, "") #Comentario upsell
             worksheet.write(row_num, 30, "") #Partner Advantage DR
             worksheet.write(row_num, 31, "") #como se paga a google
-            
+            worksheet.write(row_num, 32, subscription.resourceUiUrl)
         # Cerrar el archivo Excel
         workbook.close()
         output.seek(0)
