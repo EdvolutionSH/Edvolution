@@ -3,7 +3,6 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from odoo import api, fields, models
 import logging
-from google.cloud import channel_v1
 from google.cloud import channel
 from datetime import datetime, timedelta
 from googleapiclient.errors import HttpError
@@ -150,7 +149,7 @@ class ResellerModule(models.Model):
             return []
         try:
             # Initialize request arguments
-            request = channel_v1.ListCustomersRequest(
+            request = channel.ListCustomersRequest(
                 parent=f"accounts/{GOOGLE_RESELLER_ACCOUNT_ID}",
             )
 
