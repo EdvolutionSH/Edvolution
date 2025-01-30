@@ -1,6 +1,10 @@
 import re
+import os
 from odoo import models, fields, api
 from datetime import datetime, timedelta
+from googleapiclient.discovery import build
+from google.oauth2 import service_account
+from google.auth.transport.requests import Request
 import datetime
 import io
 import base64
@@ -113,7 +117,80 @@ class ResellerSubscription(models.Model):
             display_name = f"{record.related_partner_names} - {record.skuName}"
             result.append((record.id, display_name))
         return result
-                
+
+    def subscription_details(self, subscription_id=None):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        SERVICE_ACCOUNT_FILE = os.path.join(current_dir, '..', 'service', 'sa-reseller.json')
+        PARTNER_ID = 'C01bjv6i2'
+
+        # Crear credenciales desde el archivo del servicio
+        credentials = service_account.Credentials.from_service_account_file(
+            SERVICE_ACCOUNT_FILE,
+            scopes=['https://www.googleapis.com/auth/paymentsresellersubscription']  # Scope correcto
+        )
+
+        # Refrescar el token
+        credentials.refresh(Request())
+        # print(dir(credentials))
+        # print("Token:", credentials.project_id)
+        # print("¿Credenciales válidas?:", credentials.valid)
+        # print("¿Credenciales expiradas?:", credentials.expired)
+
+        # credentials = service_account.Credentials.from_service_account_file(
+        #     SERVICE_ACCOUNT_FILE,
+        #     scopes=['https://www.googleapis.com/auth/cloud-platform',]
+        # )
+
+        # Refrescar las credenciales (opcional)
+        # credentials.refresh(Request())
+
+        # Imprimir información clave
+        print("Token:", credentials.token)
+        print("Expira el:", credentials.expiry)
+        print("¿Credenciales válidas?:", credentials.valid)
+        print("¿Credenciales expiradas?:", credentials.expired)
+        print("Cuenta de servicio:", credentials.service_account_email)
+        print("ID del proyecto:", credentials.project_id)
+        print("Scopes:", credentials.scopes)
+
+
+        # Verificación y actualización del token de acceso si ha expirado
+        if credentials.expired and credentials.refresh_token:
+            credentials.refresh(Request())
+
+        # Asegúrate de que las credenciales tienen un token de acceso válido
+        if not credentials.valid:
+            print("Error: Las credenciales no son válidas. Intenta refrescarlas.")
+            return
+
+        # Mostrar el token de acceso (para ver si está siendo obtenido correctamente)
+        print(f"Token de acceso: {credentials.token}")
+
+        # Construcción del cliente de la API
+        service = build('paymentsresellersubscription', 'v1', credentials=credentials)
+        subscription_name = f"partners/{PARTNER_ID}/subscriptions/{subscription_id}"
+
+        try:
+            # Llamada a la API para obtener detalles de la suscripción
+            response = service.partners().subscriptions().get(name=subscription_name).execute()
+
+            # Imprime los detalles del plan y facturación
+            print("Detalles de la suscripción:")
+            print(f"ID: {response['name']}")
+            print(f"Estado: {response['state']}")
+            print("Productos asociados:")
+            for product in response.get('products', []):
+                print(f"- Producto ID: {product['productId']}")
+                print(f"  Nombre del plan: {product['plan']['planName']}")
+                print(f"  Ciclo de facturación: {product['plan']['billingCycleDuration']['count']} "
+                    f"{product['plan']['billingCycleDuration']['unit']}")
+                print(f"  Precio: {int(product['price']['amountMicros']) / 1_000_000} "
+                    f"{product['price']['currencyCode']}")
+            return response
+        except Exception as e:
+            print(f"Error al obtener los detalles de la suscripción: {e}")
+        
+
     def generate_report(self):
         # Crear un buffer en memoria
         output = io.BytesIO()
@@ -168,7 +245,6 @@ class ResellerSubscription(models.Model):
         ])
         # Escribir datos
         for row_num, subscription in enumerate(visible_subscriptions, start=1):
-
             related_partner_name = subscription.related_partner_names #Nombre del cliente de la suscripción
             reseller_partner = self.env['reseller.partner'].search([
                 ('org_display_name', '=', related_partner_name)
@@ -345,10 +421,10 @@ class ResellerSubscription(models.Model):
             worksheet.write(row_num, 20, result.get('total', '') if result else "") # monto mxn a cobrar odoo sin iva
             worksheet.write(row_num, 21, recurrence_mapping.get(result.get('recurrence', '') or ""), "") # Cliente paga
             worksheet.write(row_num, 22, "") #costo unitario licencia consola anual
-            worksheet.write(row_num, 23, "") #costo unitario licencia consola mensual
-            worksheet.write(row_num, 24, "") #Monto a pagar a Google
-            worksheet.write(row_num, 25, "") #Ganancia
-            worksheet.write(row_num, 26, "") #Margen
+            worksheet.write(row_num, 23, f"=W{row_num+1} / 12") #costo unitario licencia consola mensual
+            worksheet.write(row_num, 24, f"=Q{row_num+1} * W{row_num+1}") #Monto a pagar a Google
+            worksheet.write(row_num, 25, f"=U{row_num+1} - Y{row_num+1}") #Ganancia
+            worksheet.write(row_num, 26, f"=Z{row_num+1} / U{row_num+1}") #Margen
             worksheet.write(row_num, 27, result.get('invoice_name', '') if result else "")  # factura
             worksheet.write(row_num, 28, result.get('invoice_state', '') if result else "")  # pago de la factura
             worksheet.write(row_num, 29, "") #Comentario upsell
