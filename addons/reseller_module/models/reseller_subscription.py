@@ -345,10 +345,10 @@ class ResellerSubscription(models.Model):
             worksheet.write(row_num, 20, result.get('total', '') if result else "") # monto mxn a cobrar odoo sin iva
             worksheet.write(row_num, 21, recurrence_mapping.get(result.get('recurrence', '') or ""), "") # Cliente paga
             worksheet.write(row_num, 22, "") #costo unitario licencia consola anual
-            worksheet.write(row_num, 23, "") #costo unitario licencia consola mensual
-            worksheet.write(row_num, 24, "") #Monto a pagar a Google
-            worksheet.write(row_num, 25, "") #Ganancia
-            worksheet.write(row_num, 26, "") #Margen
+            worksheet.write(row_num, 23, f"=W{row_num+1} / 12") #costo unitario licencia consola mensual
+            worksheet.write(row_num, 24, f"=Q{row_num+1} * W{row_num+1}") #Monto a pagar a Google
+            worksheet.write(row_num, 25, f"=U{row_num+1} - Y{row_num+1}") #Ganancia
+            worksheet.write(row_num, 26, f"=Z{row_num+1} / U{row_num+1}") #Margen
             worksheet.write(row_num, 27, result.get('invoice_name', '') if result else "")  # factura
             worksheet.write(row_num, 28, result.get('invoice_state', '') if result else "")  # pago de la factura
             worksheet.write(row_num, 29, "") #Comentario upsell
