@@ -1,4 +1,5 @@
 import json
+import os
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from odoo import api, fields, models
@@ -13,7 +14,8 @@ import xlsxwriter
 
 _logger = logging.getLogger(__name__)
 
-SERVICE_ACCOUNT_FILE = 'sa-reseller.json'
+current_dir = os.path.dirname(os.path.abspath(__file__))
+SERVICE_ACCOUNT_FILE = os.path.join(current_dir, '..', 'service', 'sa-reseller.json')
 GOOGLE_RESELLER_ACCOUNT_ID = 'C01bjv6i2'
 GOOGLE_RESELLER_ADMIN_USER = 'bernardo@edvolution.io'
 
