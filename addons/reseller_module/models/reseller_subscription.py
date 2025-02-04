@@ -356,13 +356,21 @@ class ResellerSubscription(models.Model):
                             result['invoice_state'] = invoice_state_mapping.get(latest_invoice.state, "")
                             
                     else:
-                        result['price'] = SOproduct.price_unit
-                        result['discount'] = SOproduct.discount
-                        result['unit_price'] = SOproduct.price_unit
-                        result['total'] = SOproduct.price_total
+                        if SOproduct:
+                            result['price'] = SOproduct.price_unit
+                            result['discount'] = SOproduct.discount
+                            result['unit_price'] = SOproduct.price_unit
+                            result['total'] = SOproduct.price_total
+                        else:
+                            result['price'] = 0
+                            result['discount'] = 0
+                            result['unit_price'] = 0
+                            result['total'] = 0
+
                         result['recurrence'] = latest_sale_order.recurrence_id.name
                         result['invoice_name'] = latest_sale_order.name
                         result['invoice_state'] = ""
+
             recurrence_mapping = {
                 "Yearly" : "Anual",
                 "Monthly"  : "Mensual",
