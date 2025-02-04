@@ -3,15 +3,14 @@
     'name': "reseller_module",
 
     'summary': """
-        Short (1 phrase/line) summary of the module's purpose, used as
-        subtitle on modules listing or apps.openerp.com""",
+        Modulo diseñado para la administración visual de las suscripciones y datos provenientes de la consola de revendedor""",
 
     'description': """
-        Long description of module's purpose
+        Modulo diseñado para la administración visual de las suscripciones y datos provenientes de la consola de revendedor
     """,
 
-    'author': "My Company",
-    'website': "https://www.yourcompany.com",
+    'author': "Edvolution by Alinka and Fer",
+    'website': "https://www.edvolution.io",
 
     # Categories  can be used to filter modules in modules listing
     # Check https://github.com/odoo/odoo/blob/16.0/odoo/addons/base/data/ir_module_category_data.xml

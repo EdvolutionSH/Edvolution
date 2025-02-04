@@ -1,11 +1,16 @@
 import re
+import os
 from odoo import models, fields, api
+from datetime import datetime, timedelta
+from googleapiclient.discovery import build
+from google.oauth2 import service_account
+from google.auth.transport.requests import Request
 import datetime
 import io
 import base64
 import xlsxwriter
 import logging
-import datetime
+
 
 
 _logger = logging.getLogger(__name__)
@@ -113,7 +118,80 @@ class ResellerSubscription(models.Model):
             display_name = f"{record.related_partner_names} - {record.skuName}"
             result.append((record.id, display_name))
         return result
-                
+
+    def subscription_details(self, subscription_id=None):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        SERVICE_ACCOUNT_FILE = os.path.join(current_dir, '..', 'service', 'sa-reseller.json')
+        PARTNER_ID = 'C01bjv6i2'
+
+        # Crear credenciales desde el archivo del servicio
+        credentials = service_account.Credentials.from_service_account_file(
+            SERVICE_ACCOUNT_FILE,
+            scopes=['https://www.googleapis.com/auth/paymentsresellersubscription']  # Scope correcto
+        )
+
+        # Refrescar el token
+        credentials.refresh(Request())
+        # print(dir(credentials))
+        # print("Token:", credentials.project_id)
+        # print("¿Credenciales válidas?:", credentials.valid)
+        # print("¿Credenciales expiradas?:", credentials.expired)
+
+        # credentials = service_account.Credentials.from_service_account_file(
+        #     SERVICE_ACCOUNT_FILE,
+        #     scopes=['https://www.googleapis.com/auth/cloud-platform',]
+        # )
+
+        # Refrescar las credenciales (opcional)
+        # credentials.refresh(Request())
+
+        # Imprimir información clave
+        print("Token:", credentials.token)
+        print("Expira el:", credentials.expiry)
+        print("¿Credenciales válidas?:", credentials.valid)
+        print("¿Credenciales expiradas?:", credentials.expired)
+        print("Cuenta de servicio:", credentials.service_account_email)
+        print("ID del proyecto:", credentials.project_id)
+        print("Scopes:", credentials.scopes)
+
+
+        # Verificación y actualización del token de acceso si ha expirado
+        if credentials.expired and credentials.refresh_token:
+            credentials.refresh(Request())
+
+        # Asegúrate de que las credenciales tienen un token de acceso válido
+        if not credentials.valid:
+            print("Error: Las credenciales no son válidas. Intenta refrescarlas.")
+            return
+
+        # Mostrar el token de acceso (para ver si está siendo obtenido correctamente)
+        print(f"Token de acceso: {credentials.token}")
+
+        # Construcción del cliente de la API
+        service = build('paymentsresellersubscription', 'v1', credentials=credentials)
+        subscription_name = f"partners/{PARTNER_ID}/subscriptions/{subscription_id}"
+
+        try:
+            # Llamada a la API para obtener detalles de la suscripción
+            response = service.partners().subscriptions().get(name=subscription_name).execute()
+
+            # Imprime los detalles del plan y facturación
+            print("Detalles de la suscripción:")
+            print(f"ID: {response['name']}")
+            print(f"Estado: {response['state']}")
+            print("Productos asociados:")
+            for product in response.get('products', []):
+                print(f"- Producto ID: {product['productId']}")
+                print(f"  Nombre del plan: {product['plan']['planName']}")
+                print(f"  Ciclo de facturación: {product['plan']['billingCycleDuration']['count']} "
+                    f"{product['plan']['billingCycleDuration']['unit']}")
+                print(f"  Precio: {int(product['price']['amountMicros']) / 1_000_000} "
+                    f"{product['price']['currencyCode']}")
+            return response
+        except Exception as e:
+            print(f"Error al obtener los detalles de la suscripción: {e}")
+        
+
     def generate_report(self):
         # Crear un buffer en memoria
         output = io.BytesIO()
@@ -155,7 +233,8 @@ class ResellerSubscription(models.Model):
             'Pago de la factura',
             'Comentarios (Upsell, cambio de SKU)',
             'Partner Advantage DR',
-            'Como se paga a google'
+            'Como se paga a google',
+            'Suscripción consola'
         ]
         for col_num, header in enumerate(headers):
             worksheet.write(0, col_num, header)
@@ -167,7 +246,6 @@ class ResellerSubscription(models.Model):
         ])
         # Escribir datos
         for row_num, subscription in enumerate(visible_subscriptions, start=1):
-
             related_partner_name = subscription.related_partner_names #Nombre del cliente de la suscripción
             reseller_partner = self.env['reseller.partner'].search([
                 ('org_display_name', '=', related_partner_name)
@@ -193,10 +271,12 @@ class ResellerSubscription(models.Model):
                 # Buscar las órdenes de venta de contactos con el dominio especificado
                 sale_orders = self.env['sale.order'].search([
                     ('partner_id.website', 'ilike', f"%{cleaned_domain}"),  # Filtro por dominio del cliente
+                    ('state', "=", "sale")
                 ])
                 partner_names = sale_orders.mapped('partner_id.name')
                 result['partner_names'] = partner_names
                 # result['partner_name'] = sale_orders.partner_id.name
+                
                 # Si no se encuentran órdenes de venta, terminar
                 if sale_orders:
                     matching_sale_orders = sale_orders.filtered(
@@ -205,15 +285,33 @@ class ResellerSubscription(models.Model):
                             for line in order.order_line
                         )
                     )
+                    
                     if matching_sale_orders:
                         # Si se encuentran órdenes de venta, buscar la primera que coincida con sku
                         latest_sale_order = matching_sale_orders.sorted(key=lambda inv: inv.write_date or inv.create_date, reverse=True)[0]
+                        result['partner_name'] = latest_sale_order.partner_id.name
                         SOproduct = self.env['sale.order.line'].search([
                             ('order_id', '=', latest_sale_order.id),  # Relacionar facturas con las órdenes de venta
                             ('product_id.product_tmpl_id.x_studio_sku', '=', subscription.skuName)
                         ],limit=1)
                         result['invoice_subscription'] = SOproduct.name
                         result['school_partner'] = latest_sale_order.user_id.partner_id.name
+                        latest_sale_orders = matching_sale_orders.sorted(key=lambda inv: inv.write_date or inv.create_date, reverse=True)
+                        if len(latest_sale_orders) > 1:  # Verificar que haya al menos dos elementos
+                            
+                            penultimate_sale_order = latest_sale_orders[-2]
+                            last_order_product = self.env['sale.order.line'].search([
+                                ('order_id', '=', penultimate_sale_order.id),  # Relacionar facturas con las órdenes de venta
+                                ('product_id.product_tmpl_id.x_studio_sku', '=', subscription.skuName)
+                            ],limit=1)
+                            
+                            result['last_sku'] = last_order_product.name
+                            date_obj = last_order_product.write_date
+                            result['last_sku_date'] = date_obj.strftime('%d/%m/%Y')
+                            
+                        else:
+                            result['last_sku'] = ""
+                            result['last_sku_date'] = ""
                     # Buscar las facturas relacionadas con las órdenes de venta
                     invoices = self.env['account.move'].search([
                         ('invoice_origin', 'in', sale_orders.mapped('name')),  # Relacionar facturas con las órdenes de venta
@@ -311,8 +409,8 @@ class ResellerSubscription(models.Model):
             worksheet.write(row_num, 3, result.get('partner_name', '') or "")  # Nombre Comercial
             worksheet.write(row_num, 4, result.get('invoice_subscription', '') if result else "")  # Suscripción en odoo
             worksheet.write(row_num, 5, "") #Envio de correo electronico #ToDo
-            worksheet.write(row_num, 6, "") #Fecha sku anterior #ToDo
-            worksheet.write(row_num, 7, "") #sku anterior
+            worksheet.write(row_num, 6, result.get('last_sku_date', '') if result else "") #Fecha sku anterior 
+            worksheet.write(row_num, 7, result.get('last_sku', '') if result else "") #sku anterior
             worksheet.write(row_num, 8, result.get('school_partner', '') if result else "")  # school partner
             worksheet.write(row_num, 9, subscription.skuName) #sku actual
             worksheet.write(row_num, 10, plan_name_mapping.get(subscription.planName, "Desconocido")) #plan de pagos
@@ -328,16 +426,16 @@ class ResellerSubscription(models.Model):
             worksheet.write(row_num, 20, result.get('total', '') if result else "") # monto mxn a cobrar odoo sin iva
             worksheet.write(row_num, 21, recurrence_mapping.get(result.get('recurrence', '') or ""), "") # Cliente paga
             worksheet.write(row_num, 22, "") #costo unitario licencia consola anual
-            worksheet.write(row_num, 23, "") #costo unitario licencia consola mensual
-            worksheet.write(row_num, 24, "") #Monto a pagar a Google
-            worksheet.write(row_num, 25, "") #Ganancia
-            worksheet.write(row_num, 26, "") #Margen
+            worksheet.write(row_num, 23, f"=W{row_num+1} / 12") #costo unitario licencia consola mensual
+            worksheet.write(row_num, 24, f"=Q{row_num+1} * W{row_num+1}") #Monto a pagar a Google
+            worksheet.write(row_num, 25, f"=U{row_num+1} - Y{row_num+1}") #Ganancia
+            worksheet.write(row_num, 26, f"=Z{row_num+1} / U{row_num+1}") #Margen
             worksheet.write(row_num, 27, result.get('invoice_name', '') if result else "")  # factura
             worksheet.write(row_num, 28, result.get('invoice_state', '') if result else "")  # pago de la factura
             worksheet.write(row_num, 29, "") #Comentario upsell
             worksheet.write(row_num, 30, "") #Partner Advantage DR
             worksheet.write(row_num, 31, "") #como se paga a google
-            
+            worksheet.write(row_num, 32, subscription.resourceUiUrl)
         # Cerrar el archivo Excel
         workbook.close()
         output.seek(0)
