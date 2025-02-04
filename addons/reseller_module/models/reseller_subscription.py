@@ -49,6 +49,7 @@ class ResellerSubscription(models.Model):
     formattedStartTime = fields.Char(string="Fecha Inicial", compute="_compute_formatted_date")
     formattedEndTime = fields.Char(string="Fecha Final", compute="_compute_formatted_end_date")
     formattedCreationTime = fields.Char(string="Fecha creación", compute="_compute_formatted_creation_date")
+    unit = fields.Char('Unidad', default='USD')
 
     @api.depends('startTime')
     def _compute_formatted_date(self):
@@ -174,6 +175,7 @@ class ResellerSubscription(models.Model):
             partner_domain = reseller_partner.domain
             # print(partner_domain)
             result={}
+            result['unit'] = subscription.unit
             if partner_domain:
                 # Limpiar "http://" o "https://" del dominio
                 cleaned_domain = re.sub(r'^(https?://)?(www\.)?', '', partner_domain)
@@ -191,8 +193,10 @@ class ResellerSubscription(models.Model):
                 # Buscar las órdenes de venta de contactos con el dominio especificado
                 sale_orders = self.env['sale.order'].search([
                     ('partner_id.website', 'ilike', f"%{cleaned_domain}"),  # Filtro por dominio del cliente
-                ])      
-                result['partner_name'] = sale_orders.partner_id.name
+                ])
+                partner_names = sale_orders.mapped('partner_id.name')
+                result['partner_names'] = partner_names
+                # result['partner_name'] = sale_orders.partner_id.name
                 # Si no se encuentran órdenes de venta, terminar
                 if sale_orders:
                     matching_sale_orders = sale_orders.filtered(
@@ -302,7 +306,7 @@ class ResellerSubscription(models.Model):
             )
 
             worksheet.write(row_num, 0, partner.region_code) #País #ToDo obtener de consola o de odoo?
-            worksheet.write(row_num, 1, "") #Unidad moneda #ToDo
+            worksheet.write(row_num, 1, result.get('unit', '') if result else "") #Unidad moneda #ToDo
             worksheet.write(row_num, 2, cleaned_domain) #Cliente dominio
             worksheet.write(row_num, 3, result.get('partner_name', '') or "")  # Nombre Comercial
             worksheet.write(row_num, 4, result.get('invoice_subscription', '') if result else "")  # Suscripción en odoo

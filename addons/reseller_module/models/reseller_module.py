@@ -556,6 +556,7 @@ class ResellerModule(models.Model):
                     'numberOfSeats': numberOfSeats,
                     'licensedNumberOfSeats': licensedNumberOfSeats,
                     'renewalType': renewalType,
+                    'unit': 'USD'
                 }
                 
                 subscription_data = {k: v for k, v in subscription_vals.items() if v != ''}                
