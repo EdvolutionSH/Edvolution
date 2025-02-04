@@ -1,0 +1,7 @@
+<<<<<<< HEAD
+*.pyc
+__pycache__/
+=======
+# Ignorar un archivo específico
+addons/reseller_module/service/sa-reseller.json
+>>>>>>> ebbf9689a99888e90d5c90c99e67ac3b3f9ac6f0

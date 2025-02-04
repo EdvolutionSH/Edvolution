@@ -4,7 +4,6 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from odoo import api, fields, models
 import logging
-from google.cloud import channel_v1
 from google.cloud import channel
 from datetime import datetime, timedelta
 from googleapiclient.errors import HttpError
@@ -13,7 +12,6 @@ import base64
 import xlsxwriter
 
 _logger = logging.getLogger(__name__)
-
 current_dir = os.path.dirname(os.path.abspath(__file__))
 SERVICE_ACCOUNT_FILE = os.path.join(current_dir, '..', 'service', 'sa-reseller.json')
 GOOGLE_RESELLER_ACCOUNT_ID = 'C01bjv6i2'
@@ -152,7 +150,7 @@ class ResellerModule(models.Model):
             return []
         try:
             # Initialize request arguments
-            request = channel_v1.ListCustomersRequest(
+            request = channel.ListCustomersRequest(
                 parent=f"accounts/{GOOGLE_RESELLER_ACCOUNT_ID}",
             )
 
@@ -558,6 +556,7 @@ class ResellerModule(models.Model):
                     'numberOfSeats': numberOfSeats,
                     'licensedNumberOfSeats': licensedNumberOfSeats,
                     'renewalType': renewalType,
+                    'unit': 'USD'
                 }
                 
                 subscription_data = {k: v for k, v in subscription_vals.items() if v != ''}                
