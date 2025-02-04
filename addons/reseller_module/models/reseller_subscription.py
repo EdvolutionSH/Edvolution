@@ -258,15 +258,6 @@ class ResellerSubscription(models.Model):
                 # Limpiar "http://" o "https://" del dominio
                 cleaned_domain = re.sub(r'^(https?://)?(www\.)?', '', partner_domain)
                 cleaned_domain = cleaned_domain.rstrip('/')
-                
-                # Buscar el registro en sale.order donde el campo website coincida                
-                # sale_orders = self.env['sale.order'].search([
-                #     ('partner_id.website', 'ilike', '%'+cleaned_domain),  # 'ilike' para coincidencia sin distinción de mayúsculas
-                #     ('is_subscription', '=', True),  # Filtro adicional para is_subscription
-                #     ('recurring_live', '=', True),  # Filtro adicional para estado en progreso
-                #     ('order_line.product_id.product_tmpl_id.x_studio_sku', '=', subscription.skuName),  # Filtro adicional para SKU
-                #     ('order_line.product_uom_qty', '=', subscription.numberOfSeats)  # Filtro adicional para SKU
-                # ], limit=1)
 
                 # Buscar las órdenes de venta de contactos con el dominio especificado
                 sale_orders = self.env['sale.order'].search([
@@ -277,6 +268,7 @@ class ResellerSubscription(models.Model):
                 result['partner_names'] = partner_names
                 # result['partner_name'] = sale_orders.partner_id.name
                 
+                latest_sale_order = None
                 # Si no se encuentran órdenes de venta, terminar
                 if sale_orders:
                     matching_sale_orders = sale_orders.filtered(
@@ -297,6 +289,14 @@ class ResellerSubscription(models.Model):
                         ],limit=1)
                         result['invoice_subscription'] = SOproduct.name
                         result['school_partner'] = latest_sale_order.user_id.partner_id.name
+                        
+                        if latest_sale_order:
+                            result['recurrence'] = latest_sale_order.recurrence_id.name
+                            result['invoice_name'] = latest_sale_order.name
+                        else:
+                            result['recurrence'] = ""
+                            result['invoice_name'] = ""
+                        
                         latest_sale_orders = matching_sale_orders.sorted(key=lambda inv: inv.write_date or inv.create_date, reverse=True)
                         if len(latest_sale_orders) > 1:  # Verificar que haya al menos dos elementos
                             
@@ -368,8 +368,8 @@ class ResellerSubscription(models.Model):
                             result['unit_price'] = 0
                             result['total'] = 0
 
-                        result['recurrence'] = latest_sale_order.recurrence_id.name
-                        result['invoice_name'] = latest_sale_order.name
+                        # result['recurrence'] = latest_sale_order.recurrence_id.name
+                        # result['invoice_name'] = latest_sale_order.name
                         result['invoice_state'] = ""
 
             recurrence_mapping = {
