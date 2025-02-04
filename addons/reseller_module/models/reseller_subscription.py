@@ -286,6 +286,7 @@ class ResellerSubscription(models.Model):
                         )
                     )
                     
+                    SOproduct = None
                     if matching_sale_orders:
                         # Si se encuentran órdenes de venta, buscar la primera que coincida con sku
                         latest_sale_order = matching_sale_orders.sorted(key=lambda inv: inv.write_date or inv.create_date, reverse=True)[0]
