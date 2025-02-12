@@ -289,7 +289,7 @@ class ResellerSubscription(models.Model):
                         ],limit=1)
                         result['invoice_subscription'] = SOproduct.name
                         result['school_partner'] = latest_sale_order.user_id.partner_id.name
-                        result['cost']=SOproduct.x_studio_costo
+                        result['cost']=SOproduct.x_studio_costo_1
                         
                         if latest_sale_order:
                             result['recurrence'] = latest_sale_order.recurrence_id.name
