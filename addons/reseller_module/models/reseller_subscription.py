@@ -289,6 +289,7 @@ class ResellerSubscription(models.Model):
                         ],limit=1)
                         result['invoice_subscription'] = SOproduct.name
                         result['school_partner'] = latest_sale_order.user_id.partner_id.name
+                        result['cost']=SOproduct.x_studio_costo
                         
                         if latest_sale_order:
                             result['recurrence'] = latest_sale_order.recurrence_id.name
@@ -411,7 +412,7 @@ class ResellerSubscription(models.Model):
                 [('cloud_identity_id', 'like', subscription.customerId)],
                 limit=1
             )
-
+            cost_value = result.get('cost', 0)  # Si no existe, usa 0
             worksheet.write(row_num, 0, partner.region_code) #País #ToDo obtener de consola o de odoo?
             worksheet.write(row_num, 1, result.get('unit', '') if result else "") #Unidad moneda #ToDo
             worksheet.write(row_num, 2, cleaned_domain) #Cliente dominio
@@ -434,7 +435,7 @@ class ResellerSubscription(models.Model):
             worksheet.write(row_num, 19, result.get('unit_price', '') if result else "") # precio unitario al publico con descuento
             worksheet.write(row_num, 20, result.get('total', '') if result else "") # monto mxn a cobrar odoo sin iva
             worksheet.write(row_num, 21, recurrence_mapping.get(result.get('recurrence', '') or ""), "") # Cliente paga
-            worksheet.write(row_num, 22, "") #costo unitario licencia consola anual
+            worksheet.write(row_num, 22, float(cost_value)) #costo unitario licencia consola anual
             worksheet.write(row_num, 23, f"=W{row_num+1} / 12") #costo unitario licencia consola mensual
             worksheet.write(row_num, 24, f"=Q{row_num+1} * W{row_num+1}") #Monto a pagar a Google
             worksheet.write(row_num, 25, f"=U{row_num+1} - Y{row_num+1}") #Ganancia
