@@ -433,11 +433,20 @@ class ResellerSubscription(models.Model):
             worksheet.write(row_num, 17, result.get('price', '') if result else "") # precio unitario oficial google para el cliente
             worksheet.write(row_num, 18, result.get('discount', '') if result else "") # descuento google para el cliente
             worksheet.write(row_num, 19, result.get('unit_price', '') if result else "") # precio unitario al publico con descuento
-            worksheet.write(row_num, 20, result.get('total', '') if result else "") # monto mxn a cobrar odoo sin iva
+            if recurrence_mapping.get(result.get('recurrence', '') or "") == "Anual":               
+                worksheet.write(row_num, 20, f"=T{row_num+1} * Q{row_num+1}") # monto mxn a cobrar odoo sin iva
+            if recurrence_mapping.get(result.get('recurrence', '') or "") == "Mensual": 
+                worksheet.write(row_num, 20, f"=(T{row_num+1} * Q{row_num+1})*12") # monto mxn a cobrar odoo sin iva
             worksheet.write(row_num, 21, recurrence_mapping.get(result.get('recurrence', '') or ""), "") # Cliente paga
             worksheet.write(row_num, 22, float(cost_value)) #costo unitario licencia consola anual
-            worksheet.write(row_num, 23, f"=W{row_num+1} / 12") #costo unitario licencia consola mensual
-            worksheet.write(row_num, 24, f"=Q{row_num+1} * W{row_num+1}") #Monto a pagar a Google
+            if recurrence_mapping.get(result.get('recurrence', '') or "") == "Anual":
+                worksheet.write(row_num, 23, f"=(Q{row_num+1} * W{row_num+1})/12") #costo unitario licencia consola mensual
+            if recurrence_mapping.get(result.get('recurrence', '') or "") == "Mensual": 
+                worksheet.write(row_num, 23, f"=(Q{row_num+1} * W{row_num+1})") #costo unitario licencia consola mensual
+            if recurrence_mapping.get(result.get('recurrence', '') or "") == "Anual":
+                worksheet.write(row_num, 24, f"=Q{row_num+1} * W{row_num+1}") #Monto a pagar a Google
+            if recurrence_mapping.get(result.get('recurrence', '') or "") == "Mensual":
+                worksheet.write(row_num, 24, f"=(X{row_num+1} * 12)") #Monto a pagar a Google
             worksheet.write(row_num, 25, f"=U{row_num+1} - Y{row_num+1}") #Ganancia
             worksheet.write(row_num, 26, f"=Z{row_num+1} / U{row_num+1}") #Margen
             worksheet.write(row_num, 27, result.get('invoice_name', '') if result else "")  # factura
