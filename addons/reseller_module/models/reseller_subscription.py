@@ -235,8 +235,8 @@ class ResellerSubscription(models.Model):
             'Comentarios (Upsell, cambio de SKU)',
             'Partner Advantage DR',
             'Como se paga a google',
-            'Suscripción consola',
-            'Data'
+            'Suscripción consola'
+            # 'Data'
         ]
         for col_num, header in enumerate(headers):
             worksheet.write(0, col_num, header)
@@ -462,7 +462,7 @@ class ResellerSubscription(models.Model):
             worksheet.write(row_num, 30, "") #Partner Advantage DR
             worksheet.write(row_num, 31, "") #como se paga a google
             worksheet.write(row_num, 32, subscription.resourceUiUrl)
-            worksheet.write(row_num, 33, json.dumps(result, ensure_ascii=False, indent=2))
+            # worksheet.write(row_num, 33, json.dumps(result, ensure_ascii=False, indent=2))
 
         # Cerrar el archivo Excel
         workbook.close()
