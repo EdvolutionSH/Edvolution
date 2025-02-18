@@ -292,6 +292,9 @@ class ResellerSubscription(models.Model):
                         result['invoice_subscription'] = SOproduct.name
                         result['school_partner'] = latest_sale_order.user_id.partner_id.name
                         result['cost']=SOproduct.x_studio_costo_1
+                        result['price'] = SOproduct.price_unit
+                        result['discount'] = SOproduct.discount
+                        result['unit_price'] = (SOproduct.price_unit * (1 - (SOproduct.discount / 100)))
                         
                         if latest_sale_order:
                             result['recurrence'] = latest_sale_order.recurrence_id.name
@@ -385,6 +388,7 @@ class ResellerSubscription(models.Model):
                 "Quarterly"  : "Trimestral",
                 "6 month"  : "Semestral",
                 "12 month"  : "Anual",
+                "12month"  : "Anual",
             }
             # print(cleaned_domain)
             # print(recurrence_mapping.get(result.get('recurrence', '') or ""))
