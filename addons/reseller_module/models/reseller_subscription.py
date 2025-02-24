@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from google.auth.transport.requests import Request
+from google.cloud import bigquery
 import datetime
 import io
 import base64
@@ -120,79 +121,71 @@ class ResellerSubscription(models.Model):
             result.append((record.id, display_name))
         return result
 
-    def subscription_details(self, subscription_id=None):
+    def subscription_details(self, billing_account=None, sku=None):
+
+        # Validar que los parámetros sean proporcionados
+        if not billing_account or not sku:
+            _logger.error("❌ Error: billing_account y sku son obligatorios")
+            return None
+
+        # Ruta del archivo de credenciales
         current_dir = os.path.dirname(os.path.abspath(__file__))
         SERVICE_ACCOUNT_FILE = os.path.join(current_dir, '..', 'service', 'sa-reseller.json')
-        PARTNER_ID = 'C01bjv6i2'
-
-        # Crear credenciales desde el archivo del servicio
-        credentials = service_account.Credentials.from_service_account_file(
-            SERVICE_ACCOUNT_FILE,
-            scopes=['https://www.googleapis.com/auth/paymentsresellersubscription']  # Scope correcto
-        )
-
-        # Refrescar el token
-        credentials.refresh(Request())
-        # print(dir(credentials))
-        # print("Token:", credentials.project_id)
-        # print("¿Credenciales válidas?:", credentials.valid)
-        # print("¿Credenciales expiradas?:", credentials.expired)
-
-        # credentials = service_account.Credentials.from_service_account_file(
-        #     SERVICE_ACCOUNT_FILE,
-        #     scopes=['https://www.googleapis.com/auth/cloud-platform',]
-        # )
-
-        # Refrescar las credenciales (opcional)
-        # credentials.refresh(Request())
-
-        # Imprimir información clave
-        print("Token:", credentials.token)
-        print("Expira el:", credentials.expiry)
-        print("¿Credenciales válidas?:", credentials.valid)
-        print("¿Credenciales expiradas?:", credentials.expired)
-        print("Cuenta de servicio:", credentials.service_account_email)
-        print("ID del proyecto:", credentials.project_id)
-        print("Scopes:", credentials.scopes)
-
-
-        # Verificación y actualización del token de acceso si ha expirado
-        if credentials.expired and credentials.refresh_token:
-            credentials.refresh(Request())
-
-        # Asegúrate de que las credenciales tienen un token de acceso válido
-        if not credentials.valid:
-            print("Error: Las credenciales no son válidas. Intenta refrescarlas.")
-            return
-
-        # Mostrar el token de acceso (para ver si está siendo obtenido correctamente)
-        print(f"Token de acceso: {credentials.token}")
-
-        # Construcción del cliente de la API
-        service = build('paymentsresellersubscription', 'v1', credentials=credentials)
-        subscription_name = f"partners/{PARTNER_ID}/subscriptions/{subscription_id}"
 
         try:
-            # Llamada a la API para obtener detalles de la suscripción
-            response = service.partners().subscriptions().get(name=subscription_name).execute()
+            credentials = service_account.Credentials.from_service_account_file(
+                SERVICE_ACCOUNT_FILE,
+                scopes=["https://www.googleapis.com/auth/bigquery"]
+            )
 
-            # Imprime los detalles del plan y facturación
-            print("Detalles de la suscripción:")
-            print(f"ID: {response['name']}")
-            print(f"Estado: {response['state']}")
-            print("Productos asociados:")
-            for product in response.get('products', []):
-                print(f"- Producto ID: {product['productId']}")
-                print(f"  Nombre del plan: {product['plan']['planName']}")
-                print(f"  Ciclo de facturación: {product['plan']['billingCycleDuration']['count']} "
-                    f"{product['plan']['billingCycleDuration']['unit']}")
-                print(f"  Precio: {int(product['price']['amountMicros']) / 1_000_000} "
-                    f"{product['price']['currencyCode']}")
-            return response
+            # Crear cliente de BigQuery con las credenciales
+            client = bigquery.Client(credentials=credentials, project="edvolutiongfe")
+
+            # Consulta parametrizada para evitar inyección de SQL
+            query = """
+                SELECT re.invoice.month, re.cost, re.customer_cost, re.cost_at_list, re.usage.amount_in_pricing_unit, (re.cost/re.usage.amount_in_pricing_unit) as realCost
+                FROM `edvolutiongfe.GCPBilling.reseller_billing_detailed_export_v1` AS re
+                WHERE re.billing_account_id = @billing_account
+                AND re.sku.id = @sku
+                AND re.cost != 0
+                ORDER BY re.invoice.month DESC
+                LIMIT 1
+            """
+
+            # Definir parámetros
+            job_config = bigquery.QueryJobConfig(
+                query_parameters=[
+                    bigquery.ScalarQueryParameter("billing_account", "STRING", billing_account),
+                    bigquery.ScalarQueryParameter("sku", "STRING", sku)
+                ]
+            )
+
+            try:
+                query_job = client.query(query, job_config=job_config)
+                results = query_job.result()  # Ejecuta la consulta
+
+                data = []
+                for row in results:
+                    data.append({
+                        'sku': sku,
+                        'account' : billing_account,
+                        'month': row['month'],
+                        'cost': row['cost'],
+                        'customer_cost': row['customer_cost'],
+                        'cost_at_list': row['cost_at_list'],
+                        'realCost': row['realCost'],
+                    })
+
+                return data
+
+            except Exception as e:
+                _logger.error(f"❌ Error al ejecutar consulta en BigQuery: {e}")
+                return None
+
         except Exception as e:
-            print(f"Error al obtener los detalles de la suscripción: {e}")
+            _logger.error(f"❌ Error al autenticar BigQuery: {e}")
+            return None
         
-
     def generate_report(self):
         # Crear un buffer en memoria
         output = io.BytesIO()
@@ -256,6 +249,16 @@ class ResellerSubscription(models.Model):
             # print(partner_domain)
             result={}
             result['unit'] = subscription.unit
+
+            billing_account= subscription.customerId
+            sku=subscription.skuId
+            detail = self.subscription_details(billing_account, sku)
+            if detail:  # Verifica que la lista no esté vacía
+                print("✅ Datos obtenidos:", detail[0]['realCost'])
+                result['cost'] = detail[0]['realCost']
+            else:
+                print("❌ No se encontraron datos")
+                result['cost'] = 0
             if partner_domain:
                 # Limpiar "http://" o "https://" del dominio
                 cleaned_domain = re.sub(r'^(https?://)?(www\.)?', '', partner_domain)
@@ -290,8 +293,7 @@ class ResellerSubscription(models.Model):
                             ('product_id.product_tmpl_id.x_studio_sku', '=', subscription.skuName)
                         ],limit=1)
                         result['invoice_subscription'] = SOproduct.name
-                        result['school_partner'] = latest_sale_order.user_id.partner_id.name
-                        result['cost']=SOproduct.x_studio_costo_1
+                        result['school_partner'] = latest_sale_order.user_id.partner_id.name           
                         result['price'] = SOproduct.price_unit
                         result['discount'] = SOproduct.discount
                         result['unit_price'] = (SOproduct.price_unit * (1 - (SOproduct.discount / 100)))
